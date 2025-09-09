@@ -143,3 +143,24 @@ func (m *meta) collectFields(st *ast.StructType) []*ast.Field {
 	}
 	return fields
 }
+
+func fiberQueryFuncForType(expr ast.Expr) string {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		switch t.Name {
+		case "int", "int64", "int32":
+			return VAR_SET_QUERY_INT
+		case "float32", "float64":
+			return VAR_SET_QUERY_FLOAT
+		case "bool":
+			return VAR_SET_QUERY_BOOL
+		default:
+			return VAR_SET_QUERY
+		}
+	case *ast.SelectorExpr:
+		// Example: sql.NullInt64, time.Time → fallback to Query
+		return VAR_SET_QUERY
+	default:
+		return VAR_SET_QUERY
+	}
+}

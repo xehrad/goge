@@ -36,6 +36,12 @@ const (
 	req.%s = c.Get("%s")`
 	VAR_SET_QUERY = `
 	req.%s = c.Query("%s")`
+	VAR_SET_QUERY_INT = `
+	req.%s = c.QueryInt("%s")`
+	VAR_SET_QUERY_FLOAT = `
+	req.%s = c.QueryFloat("%s")`
+	VAR_SET_QUERY_BOOL = `
+	req.%s = c.QueryBool("%s")`
 	VAR_SET_URL = `
 	req.%s = c.Params("%s")`
 	FUNC_HANDLER_SET = `

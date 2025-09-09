@@ -75,7 +75,8 @@ func (m *meta) generate() ([]byte, error) {
 					fmt.Fprintf(&b, VAR_SET_HEADER, name, val)
 				}
 				if val, ok := tag.Lookup(TAG_QUERY); ok {
-					fmt.Fprintf(&b, VAR_SET_QUERY, name, val)
+					qFunc := fiberQueryFuncForType(field.Type)
+					fmt.Fprintf(&b, qFunc, name, val)
 				}
 				if val, ok := tag.Lookup(TAG_URL); ok {
 					fmt.Fprintf(&b, VAR_SET_URL, name, val)
