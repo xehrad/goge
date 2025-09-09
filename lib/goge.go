@@ -49,11 +49,11 @@ func NewGoge() *meta {
 
 // --------- GENERATION (handlers) ----------
 
-func (g *meta) generate() ([]byte, error) {
+func (m *meta) generate() ([]byte, error) {
 	var b strings.Builder
-	fmt.Fprintf(&b, IMPORT_HEADER, g.libName)
+	fmt.Fprintf(&b, IMPORT_HEADER, m.libName)
 
-	for _, api := range g.apis {
+	for _, api := range m.apis {
 		method := strings.ToUpper(api.Method)
 		if method == "POST" || method == "PUT" || method == "PATCH" {
 			fmt.Fprintf(&b, HANDLER_BODY_FUNCTION_START, api.FuncName, api.ParamsType)
@@ -62,9 +62,9 @@ func (g *meta) generate() ([]byte, error) {
 		}
 
 		// Reflect on struct tags
-		st := g.structs[api.ParamsType]
+		st := m.structs[api.ParamsType]
 		if st != nil {
-			for _, field := range st.Fields.List {
+			for _, field := range m.collectFields(st) {
 				if field.Tag == nil || len(field.Names) == 0 {
 					continue
 				}
@@ -87,7 +87,7 @@ func (g *meta) generate() ([]byte, error) {
 		b.WriteString(HANDLER_FUNCTION_END)
 	}
 
-	g.addMainFunction(&b)
+	m.addMainFunction(&b)
 	return format.Source([]byte(b.String()))
 }
 

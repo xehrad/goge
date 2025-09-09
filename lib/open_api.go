@@ -8,15 +8,15 @@ import (
 	"strings"
 )
 
-func (g *meta) generateOpenAPI() ([]byte, error) {
+func (m *meta) generateOpenAPI() ([]byte, error) {
 	paths := make(map[string]map[string]any)
 
-	for _, api := range g.apis {
+	for _, api := range m.apis {
 		method := strings.ToLower(api.Method)
 
 		parameters := []map[string]any{}
-		if st := g.structs[api.ParamsType]; st != nil {
-			for _, field := range st.Fields.List {
+		if st := m.structs[api.ParamsType]; st != nil {
+			for _, field := range m.collectFields(st) {
 				if field.Tag == nil || len(field.Names) == 0 {
 					continue
 				}
