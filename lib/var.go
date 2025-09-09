@@ -7,7 +7,7 @@ import (
 )
 
 type (
-	gogeMeta struct {
+	meta struct {
 		apis     []APIMeta
 		structs  map[string]*ast.StructType
 		packages []*packages.Package
@@ -26,12 +26,13 @@ type (
 )
 
 const (
-	FILE_OUTPUT_NAME = "api_generated.go"
-	FLAG_COMMENT_API = "//goge:api "
-	TAG_HEADER       = "gogeHeader"
-	TAG_QUERY        = "gogeQuery"
-	TAG_URL          = "gogeUrl"
-	VAR_SET_HEADER   = `
+	FILE_OUTPUT_NAME          = "api_generated.go"
+	OPEN_API_FILE_OUTPUT_NAME = "openapi.json"
+	FLAG_COMMENT_API          = "//goge:api "
+	TAG_HEADER                = "gogeHeader"
+	TAG_QUERY                 = "gogeQuery"
+	TAG_URL                   = "gogeUrl"
+	VAR_SET_HEADER            = `
 	req.%s = c.Get("%s")`
 	VAR_SET_QUERY = `
 	req.%s = c.Query("%s")`

@@ -7,7 +7,7 @@ import (
 )
 
 func TestGeneratorInMemory(t *testing.T) {
-	g := &gogeMeta{
+	g := &meta{
 		apis: []APIMeta{
 			{
 				FuncName:   "GetUser",
