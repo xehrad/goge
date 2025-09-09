@@ -1,15 +1,13 @@
-# goge
-
 <p align="center">
   <img src="assets/goge_logo.png" alt="Goge Logo" width="256"/>
 </p>
 
-**goge** — pronounced like **"goje"** — is a code generator for the [Fiber](https://github.com/gofiber/fiber) framework. 
+# goge
+
+
+**goge** is a code generator for the [Fiber](https://github.com/gofiber/fiber) framework. 
 It automatically creates API handlers and OpenAPI specs from annotated Go functions.
 
-The name comes from **Go + Generate**, reflecting its purpose of generating Go code automatically.
-
-## Example
 
 - Annotate your Fiber handler with a comment:
 
@@ -113,3 +111,10 @@ The name comes from **Go + Generate**, reflecting its purpose of generating Go c
     # package:  is name of package, default is "lib"
     # src:      is path of src, default is "./lib"
     ```
+
+
+
+## Name
+**goge** — pronounced like **"goje"** — comes from **Go + Generate**, reflecting its purpose of generating Go code automatically.  
+
+In Persian, **goge** also means *tomato* 🍅.
