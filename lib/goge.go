@@ -23,17 +23,19 @@ func Run() {
 	goge.findAPI()
 	goge.createStructType()
 
+	srcPath := path.Join(goge.libPath, FILE_OUTPUT_NAME)
 	src, err := goge.generate()
 	if err != nil {
 		log.Fatalf("format failed: %v", err)
-	} else if err := os.WriteFile(FILE_OUTPUT_NAME, src, 0644); err != nil {
+	} else if err := os.WriteFile(srcPath, src, 0644); err != nil {
 		log.Fatalf("could not write file: %v", err)
 	}
 
+	openapiPath := path.Join(goge.libPath, "openapi.json")
 	openapi, err := goge.generateOpenAPI()
 	if err != nil {
 		log.Fatalf("could not marshal OpenAPI spec: %v", err)
-	} else if err := os.WriteFile("openapi.json", openapi, 0644); err != nil {
+	} else if err := os.WriteFile(openapiPath, openapi, 0644); err != nil {
 		log.Fatalf("could not write OpenAPI spec: %v", err)
 	}
 }

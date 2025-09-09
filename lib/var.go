@@ -26,7 +26,7 @@ type (
 )
 
 const (
-	FILE_OUTPUT_NAME = "lib/api_generated.go"
+	FILE_OUTPUT_NAME = "api_generated.go"
 	FLAG_COMMENT_API = "//goge:api "
 	TAG_HEADER       = "gogeHeader"
 	TAG_QUERY        = "gogeQuery"
