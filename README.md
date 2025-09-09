@@ -44,10 +44,8 @@ It automatically creates API handlers and OpenAPI specs from annotated Go functi
   }
 
 
-  func GogeRouter() *fiber.App {
-    app := fiber.New()
+  func GogeRouter(app *fiber.App) {
     app.Add("POST", "/ping/:id", PingHandler)
-    return app
   }
   ```
 
@@ -60,7 +58,8 @@ It automatically creates API handlers and OpenAPI specs from annotated Go functi
     package main
 
     func main() {
-      app := lib.GogeRouter()
+      app := fiber.New()
+      lib.GogeRouter(app)
       log.Fatal(app.Listen(":8080"))
     }
     ```

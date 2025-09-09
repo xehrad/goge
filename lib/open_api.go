@@ -70,17 +70,18 @@ func (m *meta) generateOpenAPI() ([]byte, error) {
 	}
 
 	openapi := map[string]any{
-		"openapi": "3.0.4",
+		"paths":   paths,
+		"openapi": "3.0.1",
 		"info": map[string]any{
-			"title":   "Goge API",
-			"version": "1.0.0",
-			"description": `
-This is a sample Pet Store Server based on the OpenAPI 3.0 specification.  
-You can find out more about Swagger at https://swagger.io. 
-In the third iteration of the pet store, we've switched to the design first approach!
-You can now help us improve the API whether it's by making changes to the definition itself or to the code.`,
+			"title":          "Kloud.Team API Core",
+			"description":    "The Kloud.Team API provides a comprehensive solution for managing applications within a Platform as a Service (PaaS) and Continuous Integration/Continuous Deployment (CI/CD) environment. This API allows users to create, update, retrieve, and manage application configurations, deployments, and related resources such as ConfigMaps and pipelines. The API supports fine-grained operations for specific applications, enabling users to start, stop, or modify applications and retrieve logs or other metadata in real-time. Additionally, the API facilitates managing user roles, project configurations, and namespaces, ensuring seamless integration across multiple development environments.",
+			"termsOfService": "https://kloud.team",
+			"contact": map[string]any{
+				"name": "API Support",
+				"url":  "https://kloud.team/support",
+			},
+			"version": "2.0.1",
 		},
-		"paths": paths,
 	}
 
 	return json.MarshalIndent(openapi, "", "  ")
