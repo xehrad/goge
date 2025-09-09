@@ -4,8 +4,10 @@
   <img src="assets/goge_logo.png" alt="Goge Logo" width="256"/>
 </p>
 
-`goge` is a code generator for the [Fiber](https://github.com/gofiber/fiber) framework.  
+**goge** — pronounced like **"goje"** — is a code generator for the [Fiber](https://github.com/gofiber/fiber) framework. 
 It automatically creates API handlers and OpenAPI specs from annotated Go functions.
+
+The name comes from **Go + Generate**, reflecting its purpose of generating Go code automatically.
 
 ## Example
 
