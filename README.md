@@ -63,7 +63,7 @@ It automatically creates API handlers and OpenAPI specs from annotated Go functi
   ```
 
 
-- Inside your project, add the following to your `main.go`:
+- Inside your project, add the following to your `main.go`
 
     ```go
     //go:generate goge
@@ -100,15 +100,14 @@ It automatically creates API handlers and OpenAPI specs from annotated Go functi
     source ~/.bashrc
     # or
     source ~/.zshrc
-
-    # Now you should be able to run:
-    goge
     ```
+1. Now you should be able to run goge
+    * A ready-to-use handler function at `lib/api_generated.go`
+    * OpenAPI documentation wit params at `lib/openapi.json`
 
+    ```bash
+    goge [package] [src]
 
-## Usage
-
-> Run `go generate ./...` and you’ll get: 
-
-  * A ready-to-use handler function at `lib/api_generated.go`
-  * OpenAPI documentation with query, header, and path params at `lib/openapi.json`
+    # package:  is name of package, default is "lib"
+    # src:      is path of src, default is "./lib"
+    ```
