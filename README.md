@@ -1,7 +1,7 @@
 # goge
 
 <p align="center">
-  <img src="assets/goge_logo.png" alt="Goge Logo" width="128"/>
+  <img src="assets/goge_logo.png" alt="Goge Logo" width="256"/>
 </p>
 
 `goge` is a code generator for the [Fiber](https://github.com/gofiber/fiber) framework.  
