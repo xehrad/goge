@@ -1,6 +1,3 @@
-//go:build ignore
-// +build ignore
-
 package lib
 
 import (
@@ -11,9 +8,9 @@ import (
 
 type (
 	gogeMeta struct {
-		apis    []APIMeta
-		structs map[string]*ast.StructType
-		pkgs    []*packages.Package
+		apis     []APIMeta
+		structs  map[string]*ast.StructType
+		packages []*packages.Package
 
 		libName string
 		libPath string
@@ -31,9 +28,9 @@ type (
 const (
 	FILE_OUTPUT_NAME = "lib/api_generated.go"
 	FLAG_COMMENT_API = "//goge:api "
-	TAG_HEADER       = "f_header"
-	TAG_QUERY        = "f_query"
-	TAG_URL          = "f_url"
+	TAG_HEADER       = "gogeHeader"
+	TAG_QUERY        = "gogeQuery"
+	TAG_URL          = "gogeUrl"
 	VAR_SET_HEADER   = `
 	req.%s = c.Get("%s")`
 	VAR_SET_QUERY = `

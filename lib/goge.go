@@ -1,6 +1,3 @@
-//go:build ignore
-// +build ignore
-
 package lib
 
 import (
@@ -72,7 +69,7 @@ func (g *gogeMeta) loadPackage() {
 	if packages.PrintErrors(pkgs) > 0 {
 		log.Fatal("packages.Load returned errors")
 	}
-	g.pkgs = pkgs
+	g.packages = pkgs
 }
 
 func parseComment(comment string) map[string]string {
@@ -92,7 +89,7 @@ func parseComment(comment string) map[string]string {
 // --------- ANALYSIS (using *packages.Package.Syntax) ----------
 
 func (g *gogeMeta) findAPI() {
-	for _, pkg := range g.pkgs {
+	for _, pkg := range g.packages {
 		for _, f := range pkg.Syntax {
 			for _, decl := range f.Decls {
 				fn, ok := decl.(*ast.FuncDecl)
@@ -147,7 +144,7 @@ func (g *gogeMeta) findAPI() {
 func (g *gogeMeta) createStructType() {
 	g.structs = make(map[string]*ast.StructType)
 
-	for _, pkg := range g.pkgs {
+	for _, pkg := range g.packages {
 		for _, f := range pkg.Syntax {
 			for _, decl := range f.Decls {
 				gd, ok := decl.(*ast.GenDecl)

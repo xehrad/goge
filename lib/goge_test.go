@@ -20,9 +20,9 @@ func TestGeneratorInMemory(t *testing.T) {
 		structs: map[string]*ast.StructType{
 			"UserParams": {
 				Fields: &ast.FieldList{List: []*ast.Field{
-					{Names: []*ast.Ident{{Name: "ID"}}, Tag: &ast.BasicLit{Value: "`f_url:\"id\"`"}},
-					{Names: []*ast.Ident{{Name: "Auth"}}, Tag: &ast.BasicLit{Value: "`f_header:\"Authorization\"`"}},
-					{Names: []*ast.Ident{{Name: "Filter"}}, Tag: &ast.BasicLit{Value: "`f_query:\"filter\"`"}},
+					{Names: []*ast.Ident{{Name: "ID"}}, Tag: &ast.BasicLit{Value: "`" + TAG_URL + ":\"id\"`"}},
+					{Names: []*ast.Ident{{Name: "Auth"}}, Tag: &ast.BasicLit{Value: "`" + TAG_HEADER + ":\"Authorization\"`"}},
+					{Names: []*ast.Ident{{Name: "Filter"}}, Tag: &ast.BasicLit{Value: "`" + TAG_QUERY + ":\"filter\"`"}},
 				}},
 			},
 		},
