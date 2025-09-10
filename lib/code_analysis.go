@@ -59,19 +59,19 @@ func (m *meta) analysis() {
 					}
 
 					// first result type name (*Resp)
-					resStar, ok := fn.Type.Results.List[0].Type.(*ast.StarExpr)
-					if !ok {
-						log.Fatalf("%s first result must be *Resp", fn.Name.Name)
-					}
-					resIdent, ok := resStar.X.(*ast.Ident)
-					if !ok {
-						log.Fatalf("%s first result must be *Resp (ident)", fn.Name.Name)
-					}
+					// resStar, ok := fn.Type.Results.List[0].Type.(*ast.StarExpr)
+					// if !ok {
+					// 	log.Fatalf("%s first result must be *Resp", fn.Name.Name)
+					// }
+					// resIdent, ok := resStar.X.(*ast.Ident)
+					// if !ok {
+					// 	log.Fatalf("%s first result must be *Resp (ident)", fn.Name.Name)
+					// }
 
 					m.apis = append(m.apis, APIMeta{
 						FuncName:   fn.Name.Name,
 						ParamsType: paramsIdent.Name,
-						RespType:   resIdent.Name,
+						//RespType:   resIdent.Name,
 						Method:     meta["method"],
 						Path:       meta["path"],
 					})
