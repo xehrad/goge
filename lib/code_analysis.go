@@ -43,9 +43,9 @@ func (m *meta) analysis() {
 					}
 					meta := parseComment(c.Text)
 
-					// Expect func(c *fiber.Ctx, params *Struct) (*Resp, error)
+					// Expect func(c *fiber.Ctx, params *Struct) (*Resp, error) or ([]byte, error)
 					if fn.Type.Params == nil || fn.Type.Params.NumFields() != 2 || fn.Type.Results == nil || fn.Type.Results.NumFields() < 1 {
-						log.Fatalf("bad signature for %s: want func(*fiber.Ctx, *Params) (*Resp, error)", fn.Name.Name)
+						log.Fatalf("bad signature for %s: want func(*fiber.Ctx, *Params) (*Resp, error) or ([]byte, error)", fn.Name.Name)
 					}
 
 					// params type name
@@ -58,22 +58,35 @@ func (m *meta) analysis() {
 						log.Fatalf("%s second param must be *Struct (ident)", fn.Name.Name)
 					}
 
-					// first result type name (*Resp)
-					// resStar, ok := fn.Type.Results.List[0].Type.(*ast.StarExpr)
-					// if !ok {
-					// 	log.Fatalf("%s first result must be *Resp", fn.Name.Name)
-					// }
-					// resIdent, ok := resStar.X.(*ast.Ident)
-					// if !ok {
-					// 	log.Fatalf("%s first result must be *Resp (ident)", fn.Name.Name)
-					// }
+					// First result type name: allow pointer-to-struct or []byte
+					respIsBytes := false
+					respTypeName := ""
+					switch rt := fn.Type.Results.List[0].Type.(type) {
+					case *ast.StarExpr:
+						resIdent, ok := rt.X.(*ast.Ident)
+						if !ok {
+							log.Fatalf("%s first result must be *Struct (ident)", fn.Name.Name)
+						}
+						respTypeName = resIdent.Name
+					case *ast.ArrayType:
+						// Allow []byte (or []uint8) as raw bytes
+						if id, ok := rt.Elt.(*ast.Ident); ok && (id.Name == "byte" || id.Name == "uint8") {
+							respIsBytes = true
+							respTypeName = "[]byte"
+						} else {
+							log.Fatalf("%s first result must be *Struct or []byte", fn.Name.Name)
+						}
+					default:
+						log.Fatalf("%s first result must be *Struct or []byte", fn.Name.Name)
+					}
 
 					m.apis = append(m.apis, APIMeta{
-						FuncName:   fn.Name.Name,
-						ParamsType: paramsIdent.Name,
-						//RespType:   resIdent.Name,
-						Method:     meta["method"],
-						Path:       meta["path"],
+						FuncName:    fn.Name.Name,
+						ParamsType:  paramsIdent.Name,
+						RespType:    respTypeName,
+						RespIsBytes: respIsBytes,
+						Method:      meta["method"],
+						Path:        meta["path"],
 					})
 				}
 			}
@@ -144,23 +157,26 @@ func (m *meta) collectFields(st *ast.StructType) []*ast.Field {
 	return fields
 }
 
-func fiberQueryFuncForType(expr ast.Expr) string {
-	switch t := expr.(type) {
-	case *ast.Ident:
-		switch t.Name {
-		case "int", "int64", "int32":
-			return VAR_SET_QUERY_INT
-		case "float32", "float64":
-			return VAR_SET_QUERY_FLOAT
-		case "bool":
-			return VAR_SET_QUERY_BOOL
-		default:
-			return VAR_SET_QUERY
-		}
-	case *ast.SelectorExpr:
-		// Example: sql.NullInt64, time.Time → fallback to Query
-		return VAR_SET_QUERY
-	default:
-		return VAR_SET_QUERY
-	}
+
+
+// fiberQueryMethodForType returns the Fiber query accessor method name for a given type.
+// Used by the template engine to generate code like: c.QueryInt("name")
+func fiberQueryMethodForType(expr ast.Expr) string {
+    switch t := expr.(type) {
+    case *ast.Ident:
+        switch t.Name {
+        case "int", "int64", "int32":
+            return "QueryInt"
+        case "float32", "float64":
+            return "QueryFloat"
+        case "bool":
+            return "QueryBool"
+        default:
+            return "Query"
+        }
+    case *ast.SelectorExpr:
+        return "Query"
+    default:
+        return "Query"
+    }
 }

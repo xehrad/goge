@@ -29,7 +29,7 @@ func TestGeneratorInMemory(t *testing.T) {
 		libName: "lib",
 	}
 
-	src, err := g.generate()
+	src, err := g.generateWithTemplates()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestGeneratorInMemory(t *testing.T) {
 		t.Errorf("expected query param, got:\n%s", code)
 	}
 
-	openapi, err := g.generateOpenAPI()
+	openapi, err := g.generateOpenAPIWithTemplates()
 	if err != nil {
 		t.Fatal(err)
 	}

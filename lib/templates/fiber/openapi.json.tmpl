@@ -1,0 +1,35 @@
+{
+  "openapi": "{{ .OpenAPI }}",
+  "info": {
+    "title": "{{ .Info.Title }}",
+    "description": "{{ .Info.Description }}",
+    "termsOfService": "{{ .Info.TermsOfService }}",
+    "contact": {
+      "name": "{{ .Info.ContactName }}",
+      "url": "{{ .Info.ContactURL }}"
+    },
+    "version": "{{ .Info.Version }}"
+  },
+  "paths": {
+    {{- range $i, $p := .Paths }}
+    {{- if $i}},{{ end }}
+    "{{ $p.Path }}": {
+      {{- range $j, $m := $p.Methods }}
+      {{- if $j}},{{ end }}
+      "{{ $m.Method }}": {
+        "tags": ["{{ $p.Tag }}"],
+        "summary": "{{ $m.Summary }}",
+        "parameters": [
+          {{- range $k, $pa := $m.Parameters }}
+          {{- if $k}},{{ end }}
+          {"name": "{{ $pa.Name }}", "in": "{{ $pa.In }}", {{- if $pa.Required }} "required": true, {{- end }} "schema": {"type": "{{ $pa.Type }}"}}
+          {{- end }}
+        ],
+        "responses": {"200": {"description": "Success"}}
+      }
+      {{- end }}
+    }
+    {{- end }}
+  }
+}
+
