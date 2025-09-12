@@ -8,21 +8,12 @@ import (
 
 type (
 	meta struct {
-		apis     []APIMeta
+		APIs     []metaAPI
 		structs  map[string]*ast.StructType
 		packages []*packages.Package
 
-		libName string
+		LibName string
 		libPath string
-	}
-
-	APIMeta struct {
-		FuncName    string
-		ParamsType  string
-		RespType    string
-		RespIsBytes bool
-		Method      string
-		Path        string
 	}
 )
 

@@ -80,7 +80,7 @@ func (m *meta) buildOpenAPIData() openAPIData {
 	// Group methods by path
 	byPath := map[string]*openAPIPath{}
 
-	for _, api := range m.apis {
+	for _, api := range m.APIs {
 		method := strings.ToLower(api.Method)
 		oasPath := toOpenAPIPath(api.Path)
 		if byPath[oasPath] == nil {

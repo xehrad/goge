@@ -80,7 +80,7 @@ func (m *meta) analysis() {
 						log.Fatalf("%s first result must be *Struct or []byte", fn.Name.Name)
 					}
 
-					m.apis = append(m.apis, APIMeta{
+					m.APIs = append(m.APIs, metaAPI{
 						FuncName:    fn.Name.Name,
 						ParamsType:  paramsIdent.Name,
 						RespType:    respTypeName,

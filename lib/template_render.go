@@ -11,12 +11,6 @@ import (
 	"text/template"
 )
 
-// templateData represents the data model passed to renderer templates.
-type templateData struct {
-	Package string
-	APIs    []metaAPI
-}
-
 type metaAPI struct {
 	FuncName    string
 	ParamsType  string
@@ -37,7 +31,7 @@ type fieldBind struct {
 	QueryFunc string
 }
 
-func isBodyParse(api *APIMeta) bool {
+func isBodyParse(api *metaAPI) bool {
 	return strings.EqualFold(api.Method, "POST") || strings.EqualFold(api.Method, "PUT") || strings.EqualFold(api.Method, "PATCH")
 }
 
@@ -45,19 +39,8 @@ func isBodyParse(api *APIMeta) bool {
 // It prefers user-provided templates via env var GOGE_TEMPLATES, falling back
 // to embedded defaults for Fiber.
 func (m *meta) generateWithTemplates() ([]byte, error) {
-	data := templateData{Package: m.libName}
-
-	for _, api := range m.apis {
-		a := metaAPI{
-			FuncName:    api.FuncName,
-			ParamsType:  api.ParamsType,
-			RespType:    api.RespType,
-			RespIsBytes: api.RespIsBytes,
-			Method:      strings.ToUpper(api.Method),
-			Path:        api.Path,
-			BodyParse:   isBodyParse(&api),
-		}
-
+	for _, api := range m.APIs {
+		api.BodyParse = isBodyParse(&api)
 		if st := m.structs[api.ParamsType]; st != nil {
 			for _, field := range m.collectFields(st) {
 				if field.Tag == nil || len(field.Names) == 0 {
@@ -66,8 +49,8 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 				name := field.Names[0].Name
 				stag := reflect.StructTag(strings.Trim(field.Tag.Value, "`"))
 				if val, ok := stag.Lookup(_TAG_HEADER); ok {
-					a.Binds = append(
-						a.Binds,
+					api.Binds = append(
+						api.Binds,
 						fieldBind{
 							Name: name,
 							Kind: "header",
@@ -76,8 +59,8 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 					)
 				}
 				if val, ok := stag.Lookup(_TAG_QUERY); ok {
-					a.Binds = append(
-						a.Binds,
+					api.Binds = append(
+						api.Binds,
 						fieldBind{
 							Name:      name,
 							Kind:      "query",
@@ -87,8 +70,8 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 					)
 				}
 				if val, ok := stag.Lookup(_TAG_URL); ok {
-					a.Binds = append(
-						a.Binds,
+					api.Binds = append(
+						api.Binds,
 						fieldBind{
 							Name: name,
 							Kind: "url",
@@ -98,7 +81,6 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 				}
 			}
 		}
-		data.APIs = append(data.APIs, a)
 	}
 
 	// Load template
@@ -121,8 +103,9 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var buf bytes.Buffer
-	if err := tpl.Execute(&buf, data); err != nil {
+	if err := tpl.Execute(&buf, m); err != nil {
 		return nil, err
 	}
 	return format.Source(buf.Bytes())

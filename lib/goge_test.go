@@ -8,7 +8,7 @@ import (
 
 func TestGeneratorInMemory(t *testing.T) {
 	g := &meta{
-		apis: []APIMeta{
+		APIs: []metaAPI{
 			{
 				FuncName:   "GetUser",
 				ParamsType: "UserParams",
@@ -26,7 +26,7 @@ func TestGeneratorInMemory(t *testing.T) {
 				}},
 			},
 		},
-		libName: "lib",
+		LibName: "lib",
 	}
 
 	src, err := g.generateWithTemplates()

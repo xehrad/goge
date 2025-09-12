@@ -32,10 +32,10 @@ func Run() {
 
 func initMetaGoge() *meta {
 	g := new(meta)
-	g.libName = "lib"
+	g.LibName = "lib"
 	g.libPath = "./lib"
 	if len(os.Args) > 1 {
-		g.libName = os.Args[1]
+		g.LibName = os.Args[1]
 	}
 	if len(os.Args) > 2 {
 		g.libPath = os.Args[2]
