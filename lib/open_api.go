@@ -178,12 +178,25 @@ func (m *meta) buildSchemas(used map[string]bool) map[string]any {
 				// anonymous embedded fields are flattened by collectFields
 				continue
 			}
-			fname := f.Names[0].Name
+			// Ignore fields that are bound to header/query/url parameters
+			if f.Tag != nil {
+				stag := reflect.StructTag(strings.Trim(f.Tag.Value, "`"))
+				if _, ok := stag.Lookup(TAG_HEADER); ok {
+					continue
+				}
+				if _, ok := stag.Lookup(TAG_QUERY); ok {
+					continue
+				}
+				if _, ok := stag.Lookup(TAG_URL); ok {
+					continue
+				}
+			}
+			fName := f.Names[0].Name
 			schema, refName := m.schemaForExpr(f.Type)
 			if refName != "" {
 				add(refName)
 			}
-			props[fname] = schema
+			props[fName] = schema
 		}
 		out[name] = map[string]any{
 			"type":       "object",
