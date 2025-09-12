@@ -157,26 +157,24 @@ func (m *meta) collectFields(st *ast.StructType) []*ast.Field {
 	return fields
 }
 
-
-
 // fiberQueryMethodForType returns the Fiber query accessor method name for a given type.
 // Used by the template engine to generate code like: c.QueryInt("name")
 func fiberQueryMethodForType(expr ast.Expr) string {
-    switch t := expr.(type) {
-    case *ast.Ident:
-        switch t.Name {
-        case "int", "int64", "int32":
-            return "QueryInt"
-        case "float32", "float64":
-            return "QueryFloat"
-        case "bool":
-            return "QueryBool"
-        default:
-            return "Query"
-        }
-    case *ast.SelectorExpr:
-        return "Query"
-    default:
-        return "Query"
-    }
+	switch t := expr.(type) {
+	case *ast.Ident:
+		switch t.Name {
+		case "int", "int64", "int32":
+			return "QueryInt"
+		case "float32", "float64":
+			return "QueryFloat"
+		case "bool":
+			return "QueryBool"
+		default:
+			return "Query"
+		}
+	case *ast.SelectorExpr:
+		return "Query"
+	default:
+		return "Query"
+	}
 }

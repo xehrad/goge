@@ -6,17 +6,18 @@ import (
 	"go/format"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"text/template"
 )
 
-// TemplateData represents the data model passed to renderer templates.
-type TemplateData struct {
+// templateData represents the data model passed to renderer templates.
+type templateData struct {
 	Package string
-	APIs    []APIData
+	APIs    []metaAPI
 }
 
-type APIData struct {
+type metaAPI struct {
 	FuncName    string
 	ParamsType  string
 	RespType    string
@@ -25,10 +26,10 @@ type APIData struct {
 	Path        string
 	BodyParse   bool
 	// Bindings collected from struct tags
-	Binds []FieldBind
+	Binds []fieldBind
 }
 
-type FieldBind struct {
+type fieldBind struct {
 	Name string
 	Kind string // header|query|url
 	Key  string
@@ -44,10 +45,10 @@ func isBodyParse(api *APIMeta) bool {
 // It prefers user-provided templates via env var GOGE_TEMPLATES, falling back
 // to embedded defaults for Fiber.
 func (m *meta) generateWithTemplates() ([]byte, error) {
-	data := TemplateData{Package: m.libName}
+	data := templateData{Package: m.libName}
 
 	for _, api := range m.apis {
-		a := APIData{
+		a := metaAPI{
 			FuncName:    api.FuncName,
 			ParamsType:  api.ParamsType,
 			RespType:    api.RespType,
@@ -63,21 +64,21 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 					continue
 				}
 				name := field.Names[0].Name
-				tag := reflectTag(field.Tag.Value)
-				if val, ok := tag[TAG_HEADER]; ok {
+				stag := reflect.StructTag(strings.Trim(field.Tag.Value, "`"))
+				if val, ok := stag.Lookup(TAG_HEADER); ok {
 					a.Binds = append(
 						a.Binds,
-						FieldBind{
+						fieldBind{
 							Name: name,
 							Kind: "header",
 							Key:  val,
 						},
 					)
 				}
-				if val, ok := tag[TAG_QUERY]; ok {
+				if val, ok := stag.Lookup(TAG_QUERY); ok {
 					a.Binds = append(
 						a.Binds,
-						FieldBind{
+						fieldBind{
 							Name:      name,
 							Kind:      "query",
 							Key:       val,
@@ -85,10 +86,10 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 						},
 					)
 				}
-				if val, ok := tag[TAG_URL]; ok {
+				if val, ok := stag.Lookup(TAG_URL); ok {
 					a.Binds = append(
 						a.Binds,
-						FieldBind{
+						fieldBind{
 							Name: name,
 							Kind: "url",
 							Key:  val,
@@ -116,11 +117,7 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 		}
 	}
 
-	funcMap := template.FuncMap{
-		"lower": strings.ToLower,
-		"title": strings.Title,
-	}
-	tpl, err := template.New("api_file").Funcs(funcMap).Parse(content)
+	tpl, err := template.New("api_file").Parse(content)
 	if err != nil {
 		return nil, err
 	}
@@ -129,28 +126,6 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 		return nil, err
 	}
 	return format.Source(buf.Bytes())
-}
-
-// reflectTag parses a raw struct tag literal like `gogeHeader:"Authorization"` into a map.
-func reflectTag(raw string) map[string]string {
-	res := map[string]string{}
-	s := strings.Trim(raw, "`")
-	// Very small parser; expects key:"value" pairs separated by spaces
-	for _, part := range strings.Split(s, " ") {
-		if part == "" {
-			continue
-		}
-		kv := strings.SplitN(part, ":", 2)
-		if len(kv) != 2 {
-			continue
-		}
-		key := strings.Trim(kv[0], " \t\n\r")
-		val := strings.Trim(kv[1], " \t\n\r\"")
-		if key != "" && val != "" {
-			res[key] = val
-		}
-	}
-	return res
 }
 
 // loadExternalTemplate reads a template file from disk.
