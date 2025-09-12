@@ -19,8 +19,10 @@ func isBodyParse(api *metaAPI) bool {
 // It prefers user-provided templates via env var GOGE_TEMPLATES, falling back
 // to embedded defaults for Fiber.
 func (m *meta) generateWithTemplates() ([]byte, error) {
-	for _, api := range m.APIs {
-		api.BodyParse = isBodyParse(&api)
+	// Build bindings and flags (BodyParse) for each API
+	for i := range m.APIs {
+		api := &m.APIs[i]
+		api.BodyParse = isBodyParse(api)
 		if st := m.structs[api.ParamsType]; st != nil {
 			for _, field := range m.collectFields(st) {
 				if field.Tag == nil || len(field.Names) == 0 {
@@ -31,11 +33,7 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 				if val, ok := stag.Lookup(_TAG_HEADER); ok {
 					api.Binds = append(
 						api.Binds,
-						fieldBind{
-							Name: name,
-							Kind: "header",
-							Key:  val,
-						},
+						fieldBind{Name: name, Kind: "header", Key: val},
 					)
 				}
 				if val, ok := stag.Lookup(_TAG_QUERY); ok {
@@ -52,16 +50,17 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 				if val, ok := stag.Lookup(_TAG_URL); ok {
 					api.Binds = append(
 						api.Binds,
-						fieldBind{
-							Name: name,
-							Kind: "url",
-							Key:  val,
-						},
+						fieldBind{Name: name, Kind: "url", Key: val},
 					)
 				}
 			}
 		}
 	}
+
+	// Generate OpenAPI JSON now so we can embed it into the code
+	b, _ := m.generateOpenAPIWithTemplates()
+	m.OpenAPIFileJSON = string(b)
+	m.SwaggerHTML = SWAGGER_HTML
 
 	// Load template
 	tplPath := os.Getenv("GOGE_TEMPLATES")

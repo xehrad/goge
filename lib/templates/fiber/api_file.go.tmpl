@@ -7,6 +7,17 @@ import (
     "github.com/gofiber/fiber/v2"
 )
 
+
+func SwaggerUIHandler(c *fiber.Ctx) error {
+    c.Type("html")
+    return c.Send(gogeSwaggerHTML)
+}
+
+func SwaggerJSONHandler(c *fiber.Ctx) error {
+    c.Type("json")
+    return c.Send(gogeOpenAPIFileJSON)
+}
+
 {{ range .APIs }}
 func {{ .FuncName }}Handler(c *fiber.Ctx) error {
     req := new({{ .ParamsType }})
@@ -43,7 +54,16 @@ func {{ .FuncName }}Handler(c *fiber.Ctx) error {
 {{ end }}
 
 func GogeRouter(app *fiber.App) {
+    // Swagger endpoints
+    app.Add("GET", "/swagger", SwaggerUIHandler)
+    app.Add("GET", "/swagger.json", SwaggerJSONHandler)
     {{- range .APIs }}
     app.Add("{{ .Method }}", "{{ .Path }}", {{ .FuncName }}Handler)
     {{- end }}
 }
+
+// --- Embedded Swagger assets ---
+var (
+    gogeSwaggerHTML = []byte(`{{ .SwaggerHTML }}`)
+    gogeOpenAPIFileJSON = []byte(`{{ .OpenAPIFileJSON }}`)
+)

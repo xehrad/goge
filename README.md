@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/goge_logo.png" alt="Goge Logo" width="256"/>
+  <img src="assets/logo/goge_logo.png" alt="Goge Logo" width="256"/>
 </p>
 
 # goge
@@ -103,6 +103,6 @@ It automatically creates API handlers and OpenAPI specs from annotated Go functi
 
 
 ## Name
-**goge** — pronounced like **"goje"** — comes from **Go + Generate**, reflecting its purpose of generating Go code automatically.  
+**goge** — pronounced like **"Go Dje"** — comes from **Go + Generate**, reflecting its purpose of generating Go code automatically.  
 
 In Persian, **goge** also means *tomato* 🍅.
