@@ -14,67 +14,6 @@ import (
 	"text/template"
 )
 
-type (
-	openAPIData struct {
-		ComponentsSchemasJSON string // JSON string for the value of components.schemas
-		OpenAPIMetaJSON       string // JSON string for the value of Info and other metadata
-		Paths                 []openAPIPath
-	}
-
-	openAPIMeta struct {
-		Openapi      string               `json:"openapi,omitempty"`
-		Info         *openAPIInfo         `json:"info,omitempty"`
-		ExternalDocs *openAPIExternalDocs `json:"externalDocs,omitempty"`
-		Servers      []struct {
-			URL string `json:"url,omitempty"`
-		} `json:"servers,omitempty"`
-	}
-	openAPIExternalDocs struct {
-		Description string `json:"description,omitempty"`
-		URL         string `json:"url,omitempty"`
-	}
-	openAPIInfo struct {
-		Title          string          `json:"title,omitempty"`
-		Description    string          `json:"description,omitempty"`
-		TermsOfService string          `json:"termsOfService,omitempty"`
-		Contact        *openAPIContact `json:"contact,omitempty"`
-		License        *openAPILicense `json:"license,omitempty"`
-		Version        string          `json:"version,omitempty"`
-	}
-
-	openAPILicense struct {
-		Name string `json:"name,omitempty"`
-		URL  string `json:"url,omitempty"`
-	}
-	openAPIContact struct {
-		Name  string `json:"name,omitempty"`
-		URL   string `json:"url,omitempty"`
-		Email string `json:"email,omitempty"`
-	}
-
-	openAPIPath struct {
-		Path    string
-		Tag     string
-		Methods []openAPIMethod
-	}
-
-	openAPIMethod struct {
-		Method     string // lower-case: get, post, ...
-		Summary    string
-		Parameters []openAPIParam
-		// Optional references
-		RequestBodyRef   string // components schema name
-		ResponseRef      string // components schema name
-		ResponseIsBinary bool   // if true, use application/octet-stream string/binary
-	}
-
-	openAPIParam struct {
-		Name     string
-		In       string // query, header, path
-		Required bool
-		Type     string // string (default)
-	}
-)
 
 func (m *meta) buildOpenAPIData() openAPIData {
 	// Group methods by path

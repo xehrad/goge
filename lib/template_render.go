@@ -11,26 +11,6 @@ import (
 	"text/template"
 )
 
-type metaAPI struct {
-	FuncName    string
-	ParamsType  string
-	RespType    string
-	RespIsBytes bool
-	Method      string
-	Path        string
-	BodyParse   bool
-	// Bindings collected from struct tags
-	Binds []fieldBind
-}
-
-type fieldBind struct {
-	Name string
-	Kind string // header|query|url
-	Key  string
-	// For Fiber at the moment: Query, QueryInt, QueryFloat, QueryBool
-	QueryFunc string
-}
-
 func isBodyParse(api *metaAPI) bool {
 	return strings.EqualFold(api.Method, "POST") || strings.EqualFold(api.Method, "PUT") || strings.EqualFold(api.Method, "PATCH")
 }
