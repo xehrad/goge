@@ -28,12 +28,13 @@ type (
 )
 
 const (
-	FILE_OUTPUT_NAME          = "api_generated.go"
-	OPEN_API_FILE_OUTPUT_NAME = "openapi.json"
-	FLAG_COMMENT_API          = "//goge:api "
-	TAG_HEADER                = "gogeHeader"
-	TAG_QUERY                 = "gogeQuery"
-	TAG_URL                   = "gogeUrl"
+    FILE_OUTPUT_NAME          = "api_generated.go"
+    OPEN_API_FILE_OUTPUT_NAME = "openapi.json"
+    OPEN_API_META_FILE_NAME   = "meta.json"
+    FLAG_COMMENT_API          = "//goge:api "
+    TAG_HEADER                = "gogeHeader"
+    TAG_QUERY                 = "gogeQuery"
+    TAG_URL                   = "gogeUrl"
 )
 
 var ErrNoTemplate = errors.New("template not found")

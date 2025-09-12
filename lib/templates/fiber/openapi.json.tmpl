@@ -1,15 +1,6 @@
 {
-  "openapi": "{{ .OpenAPI }}",
-  "info": {
-    "title": "{{ .Info.Title }}",
-    "description": "{{ .Info.Description }}",
-    "termsOfService": "{{ .Info.TermsOfService }}",
-    "contact": {
-      "name": "{{ .Info.ContactName }}",
-      "url": "{{ .Info.ContactURL }}"
-    },
-    "version": "{{ .Info.Version }}"
-  },
+  {{ .OpenAPIMetaJSON }},
+
   "paths": {
     {{- range $i, $p := .Paths }}
     {{- if $i}},{{ end }}

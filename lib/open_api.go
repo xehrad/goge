@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"go/ast"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -13,59 +14,81 @@ import (
 	"text/template"
 )
 
-type OpenAPIData struct {
-	OpenAPI string
-	Info    OpenAPIInfo
-	Paths   []OpenAPIPath
-	// JSON string for the value of components.schemas
-	ComponentsSchemasJSON string
-}
+type (
+	openAPIData struct {
+		ComponentsSchemasJSON string // JSON string for the value of components.schemas
+		OpenAPIMetaJSON       string // JSON string for the value of Info and other metadata
+		Paths                 []openAPIPath
+	}
 
-type OpenAPIInfo struct {
-	Title          string
-	Description    string
-	TermsOfService string
-	ContactName    string
-	ContactURL     string
-	Version        string
-}
+	openAPIMeta struct {
+		Openapi      string               `json:"openapi,omitempty"`
+		Info         *openAPIInfo         `json:"info,omitempty"`
+		ExternalDocs *openAPIExternalDocs `json:"externalDocs,omitempty"`
+		Servers      []struct {
+			URL string `json:"url,omitempty"`
+		} `json:"servers,omitempty"`
+	}
+	openAPIExternalDocs struct {
+		Description string `json:"description,omitempty"`
+		URL         string `json:"url,omitempty"`
+	}
+	openAPIInfo struct {
+		Title          string          `json:"title,omitempty"`
+		Description    string          `json:"description,omitempty"`
+		TermsOfService string          `json:"termsOfService,omitempty"`
+		Contact        *openAPIContact `json:"contact,omitempty"`
+		License        *openAPILicense `json:"license,omitempty"`
+		Version        string          `json:"version,omitempty"`
+	}
 
-type OpenAPIPath struct {
-	Path    string
-	Tag     string
-	Methods []OpenAPIMethod
-}
+	openAPILicense struct {
+		Name string `json:"name,omitempty"`
+		URL  string `json:"url,omitempty"`
+	}
+	openAPIContact struct {
+		Name  string `json:"name,omitempty"`
+		URL   string `json:"url,omitempty"`
+		Email string `json:"email,omitempty"`
+	}
 
-type OpenAPIMethod struct {
-	Method     string // lower-case: get, post, ...
-	Summary    string
-	Parameters []OpenAPIParam
-	// Optional references
-	RequestBodyRef   string // components schema name
-	ResponseRef      string // components schema name
-	ResponseIsBinary bool   // if true, use application/octet-stream string/binary
-}
+	openAPIPath struct {
+		Path    string
+		Tag     string
+		Methods []openAPIMethod
+	}
 
-type OpenAPIParam struct {
-	Name     string
-	In       string // query, header, path
-	Required bool
-	Type     string // string (default)
-}
+	openAPIMethod struct {
+		Method     string // lower-case: get, post, ...
+		Summary    string
+		Parameters []openAPIParam
+		// Optional references
+		RequestBodyRef   string // components schema name
+		ResponseRef      string // components schema name
+		ResponseIsBinary bool   // if true, use application/octet-stream string/binary
+	}
 
-func (m *meta) buildOpenAPIData() OpenAPIData {
+	openAPIParam struct {
+		Name     string
+		In       string // query, header, path
+		Required bool
+		Type     string // string (default)
+	}
+)
+
+func (m *meta) buildOpenAPIData() openAPIData {
 	// Group methods by path
-	byPath := map[string]*OpenAPIPath{}
+	byPath := map[string]*openAPIPath{}
 
 	for _, api := range m.apis {
 		method := strings.ToLower(api.Method)
 		oasPath := toOpenAPIPath(api.Path)
 		if byPath[oasPath] == nil {
-			byPath[oasPath] = &OpenAPIPath{Path: oasPath, Tag: getBaseRoot(oasPath)}
+			byPath[oasPath] = &openAPIPath{Path: oasPath, Tag: getBaseRoot(oasPath)}
 		}
 
 		// Parameters
-		params := []OpenAPIParam{}
+		params := []openAPIParam{}
 		if st := m.structs[api.ParamsType]; st != nil {
 			for _, field := range m.collectFields(st) {
 				if field.Tag == nil || len(field.Names) == 0 {
@@ -75,7 +98,7 @@ func (m *meta) buildOpenAPIData() OpenAPIData {
 				if val, ok := tag.Lookup(TAG_QUERY); ok {
 					params = append(
 						params,
-						OpenAPIParam{
+						openAPIParam{
 							Name: val,
 							In:   "query",
 							Type: "string",
@@ -85,7 +108,7 @@ func (m *meta) buildOpenAPIData() OpenAPIData {
 				if val, ok := tag.Lookup(TAG_HEADER); ok {
 					params = append(
 						params,
-						OpenAPIParam{
+						openAPIParam{
 							Name: val,
 							In:   "header",
 							Type: "string",
@@ -95,7 +118,7 @@ func (m *meta) buildOpenAPIData() OpenAPIData {
 				if val, ok := tag.Lookup(TAG_URL); ok {
 					params = append(
 						params,
-						OpenAPIParam{
+						openAPIParam{
 							Name:     val,
 							In:       "path",
 							Required: true,
@@ -106,7 +129,7 @@ func (m *meta) buildOpenAPIData() OpenAPIData {
 			}
 		}
 
-		me := OpenAPIMethod{Method: method, Summary: api.FuncName, Parameters: params}
+		me := openAPIMethod{Method: method, Summary: api.FuncName, Parameters: params}
 		// Request body for methods that parse body
 		if isBodyParse(&api) {
 			if _, ok := m.structs[api.ParamsType]; ok {
@@ -123,7 +146,7 @@ func (m *meta) buildOpenAPIData() OpenAPIData {
 	}
 
 	// Flatten to slice to have deterministic template iteration order
-	paths := make([]OpenAPIPath, 0, len(byPath))
+	paths := make([]openAPIPath, 0, len(byPath))
 	for _, p := range byPath {
 		paths = append(paths, *p)
 	}
@@ -143,19 +166,40 @@ func (m *meta) buildOpenAPIData() OpenAPIData {
 	schemas := m.buildSchemas(used)
 	schemasJSONBytes, _ := json.MarshalIndent(schemas, "", "  ")
 
-	return OpenAPIData{
-		OpenAPI: "3.0.1",
-		Info: OpenAPIInfo{
-			Title:          "Kloud.Team API Core",
-			Description:    "The Kloud.Team API provides a comprehensive solution for managing applications within a Platform as a Service (PaaS) and Continuous Integration/Continuous Deployment (CI/CD) environment. This API allows users to create, update, retrieve, and manage application configurations, deployments, and related resources such as ConfigMaps and pipelines. The API supports fine-grained operations for specific applications, enabling users to start, stop, or modify applications and retrieve logs or other metadata in real-time. Additionally, the API facilitates managing user roles, project configurations, and namespaces, ensuring seamless integration across multiple development environments.",
-			TermsOfService: "https://kloud.team",
-			ContactName:    "API Support",
-			ContactURL:     "https://kloud.team/support",
-			Version:        "2.0.1",
-		},
+	// Load meta from file if present
+	oMeta := m.loadOpenAPIMeta()
+	oMetaJson, _ := json.Marshal(oMeta)
+	oMetaJson = oMetaJson[1 : len(oMetaJson)-1] // remove '{' and '}' of JSON
+
+	return openAPIData{
+		OpenAPIMetaJSON:       string(oMetaJson),
 		Paths:                 paths,
 		ComponentsSchemasJSON: string(schemasJSONBytes),
 	}
+}
+
+// loadOpenAPIMeta reads meta.json from the lib path to fill OpenAPI version and Info.
+func (m *meta) loadOpenAPIMeta() *openAPIMeta {
+	// Defaults
+	oMeta := new(openAPIMeta)
+	oMeta.Info = new(openAPIInfo)
+	oMeta.Openapi = "3.0.1"
+	oMeta.Info.Title = "API Core"
+	oMeta.Info.Description = "This API generated by Goge, you can change this description by add file meta.json"
+	oMeta.Info.TermsOfService = "https://github.com/xehrad/goge"
+
+	b, err := os.ReadFile(OPEN_API_META_FILE_NAME)
+	if err != nil {
+		log.Printf("Err loadOpenAPIMeta, read file %s, err:%s", OPEN_API_META_FILE_NAME, err.Error())
+		return oMeta
+	}
+
+	if err := json.Unmarshal(b, oMeta); err != nil {
+		log.Printf("Err loadOpenAPIMeta, Unmarshal json file %s, err:%s", OPEN_API_META_FILE_NAME, err.Error())
+		return oMeta
+	}
+
+	return oMeta
 }
 
 // buildSchemas builds OpenAPI component schemas for the provided type names (and their dependencies).
