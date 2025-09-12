@@ -38,7 +38,7 @@ func (m *meta) analysis() {
 					continue
 				}
 				for _, c := range fn.Doc.List {
-					if !strings.HasPrefix(c.Text, FLAG_COMMENT_API) {
+					if !strings.HasPrefix(c.Text, _FLAG_COMMENT_API) {
 						continue
 					}
 					meta := parseComment(c.Text)
@@ -121,7 +121,7 @@ func (m *meta) createStructType() {
 }
 
 func parseComment(comment string) map[string]string {
-	comment = strings.TrimPrefix(comment, FLAG_COMMENT_API)
+	comment = strings.TrimPrefix(comment, _FLAG_COMMENT_API)
 	parts := strings.Fields(comment)
 	out := make(map[string]string, 3)
 	for _, p := range parts {

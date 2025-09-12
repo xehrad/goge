@@ -7,12 +7,12 @@ import (
 )
 
 func Run() {
-	goge := NewGoge()
+	goge := initMetaGoge()
 	goge.loadPackage()
 	goge.analysis()
 	goge.createStructType()
 
-	srcPath := path.Join(goge.libPath, FILE_OUTPUT_NAME)
+	srcPath := path.Join(goge.libPath, _FILE_OUTPUT_NAME)
 	// Prefer template-based generation when available
 	src, err := goge.generateWithTemplates()
 	if err != nil {
@@ -21,7 +21,7 @@ func Run() {
 		log.Fatalf("could not write file: %v", err)
 	}
 
-	openapiPath := path.Join(goge.libPath, OPEN_API_FILE_OUTPUT_NAME)
+	openapiPath := path.Join(goge.libPath, _OPEN_API_FILE_OUTPUT_NAME)
 	openapi, err := goge.generateOpenAPIWithTemplates()
 	if err != nil {
 		log.Fatalf("could not marshal OpenAPI spec: %v", err)
@@ -30,7 +30,7 @@ func Run() {
 	}
 }
 
-func NewGoge() *meta {
+func initMetaGoge() *meta {
 	g := new(meta)
 	g.libName = "lib"
 	g.libPath = "./lib"

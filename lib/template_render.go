@@ -65,7 +65,7 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 				}
 				name := field.Names[0].Name
 				stag := reflect.StructTag(strings.Trim(field.Tag.Value, "`"))
-				if val, ok := stag.Lookup(TAG_HEADER); ok {
+				if val, ok := stag.Lookup(_TAG_HEADER); ok {
 					a.Binds = append(
 						a.Binds,
 						fieldBind{
@@ -75,7 +75,7 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 						},
 					)
 				}
-				if val, ok := stag.Lookup(TAG_QUERY); ok {
+				if val, ok := stag.Lookup(_TAG_QUERY); ok {
 					a.Binds = append(
 						a.Binds,
 						fieldBind{
@@ -86,7 +86,7 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 						},
 					)
 				}
-				if val, ok := stag.Lookup(TAG_URL); ok {
+				if val, ok := stag.Lookup(_TAG_URL); ok {
 					a.Binds = append(
 						a.Binds,
 						fieldBind{
