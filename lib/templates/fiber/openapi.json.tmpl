@@ -19,17 +19,38 @@
       "{{ $m.Method }}": {
         "tags": ["{{ $p.Tag }}"],
         "summary": "{{ $m.Summary }}",
+        {{- if $m.RequestBodyRef }}
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/{{ $m.RequestBodyRef }}"}
+            }
+          },
+          "required": true
+        },
+        {{- end }}
         "parameters": [
           {{- range $k, $pa := $m.Parameters }}
           {{- if $k}},{{ end }}
           {"name": "{{ $pa.Name }}", "in": "{{ $pa.In }}", {{- if $pa.Required }} "required": true, {{- end }} "schema": {"type": "{{ $pa.Type }}"}}
           {{- end }}
         ],
-        "responses": {"200": {"description": "Success"}}
+        "responses": {
+          "200": {
+            "description": "Success"
+            {{- if $m.ResponseRef }},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/{{ $m.ResponseRef }}"}}}
+            {{- else if $m.ResponseIsBinary }},
+            "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}
+            {{- end }}
+          }
+        }
       }
       {{- end }}
     }
     {{- end }}
+  },
+  "components": {
+    "schemas": {{ .ComponentsSchemasJSON }}
   }
 }
-

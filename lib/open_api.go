@@ -2,6 +2,8 @@ package lib
 
 import (
 	"bytes"
+	"encoding/json"
+	"go/ast"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,6 +17,8 @@ type OpenAPIData struct {
 	OpenAPI string
 	Info    OpenAPIInfo
 	Paths   []OpenAPIPath
+	// JSON string for the value of components.schemas
+	ComponentsSchemasJSON string
 }
 
 type OpenAPIInfo struct {
@@ -36,6 +40,10 @@ type OpenAPIMethod struct {
 	Method     string // lower-case: get, post, ...
 	Summary    string
 	Parameters []OpenAPIParam
+	// Optional references
+	RequestBodyRef   string // components schema name
+	ResponseRef      string // components schema name
+	ResponseIsBinary bool   // if true, use application/octet-stream string/binary
 }
 
 type OpenAPIParam struct {
@@ -65,18 +73,52 @@ func (m *meta) buildOpenAPIData() OpenAPIData {
 				}
 				tag := reflect.StructTag(strings.Trim(field.Tag.Value, "`"))
 				if val, ok := tag.Lookup(TAG_QUERY); ok {
-					params = append(params, OpenAPIParam{Name: val, In: "query", Type: "string"})
+					params = append(
+						params,
+						OpenAPIParam{
+							Name: val,
+							In:   "query",
+							Type: "string",
+						},
+					)
 				}
 				if val, ok := tag.Lookup(TAG_HEADER); ok {
-					params = append(params, OpenAPIParam{Name: val, In: "header", Type: "string"})
+					params = append(
+						params,
+						OpenAPIParam{
+							Name: val,
+							In:   "header",
+							Type: "string",
+						},
+					)
 				}
 				if val, ok := tag.Lookup(TAG_URL); ok {
-					params = append(params, OpenAPIParam{Name: val, In: "path", Required: true, Type: "string"})
+					params = append(
+						params,
+						OpenAPIParam{
+							Name:     val,
+							In:       "path",
+							Required: true,
+							Type:     "string",
+						},
+					)
 				}
 			}
 		}
 
 		me := OpenAPIMethod{Method: method, Summary: api.FuncName, Parameters: params}
+		// Request body for methods that parse body
+		if isBodyParse(&api) {
+			if _, ok := m.structs[api.ParamsType]; ok {
+				me.RequestBodyRef = api.ParamsType
+			}
+		}
+		// Response schema
+		if api.RespIsBytes {
+			me.ResponseIsBinary = true
+		} else if _, ok := m.structs[api.RespType]; ok && api.RespType != "" {
+			me.ResponseRef = api.RespType
+		}
 		byPath[oasPath].Methods = append(byPath[oasPath].Methods, me)
 	}
 
@@ -85,6 +127,21 @@ func (m *meta) buildOpenAPIData() OpenAPIData {
 	for _, p := range byPath {
 		paths = append(paths, *p)
 	}
+
+	// Build components.schemas for used types (params + responses)
+	used := map[string]bool{}
+	for _, p := range paths {
+		for _, me := range p.Methods {
+			if me.RequestBodyRef != "" {
+				used[me.RequestBodyRef] = true
+			}
+			if me.ResponseRef != "" {
+				used[me.ResponseRef] = true
+			}
+		}
+	}
+	schemas := m.buildSchemas(used)
+	schemasJSONBytes, _ := json.MarshalIndent(schemas, "", "  ")
 
 	return OpenAPIData{
 		OpenAPI: "3.0.1",
@@ -96,7 +153,97 @@ func (m *meta) buildOpenAPIData() OpenAPIData {
 			ContactURL:     "https://kloud.team/support",
 			Version:        "2.0.1",
 		},
-		Paths: paths,
+		Paths:                 paths,
+		ComponentsSchemasJSON: string(schemasJSONBytes),
+	}
+}
+
+// buildSchemas builds OpenAPI component schemas for the provided type names (and their dependencies).
+func (m *meta) buildSchemas(used map[string]bool) map[string]any {
+	out := map[string]any{}
+	visited := map[string]bool{}
+	var add func(name string)
+	add = func(name string) {
+		if visited[name] {
+			return
+		}
+		visited[name] = true
+		st := m.structs[name]
+		if st == nil {
+			return
+		}
+		props := map[string]any{}
+		for _, f := range m.collectFields(st) {
+			if len(f.Names) == 0 {
+				// anonymous embedded fields are flattened by collectFields
+				continue
+			}
+			fname := f.Names[0].Name
+			schema, refName := m.schemaForExpr(f.Type)
+			if refName != "" {
+				add(refName)
+			}
+			props[fname] = schema
+		}
+		out[name] = map[string]any{
+			"type":       "object",
+			"properties": props,
+		}
+	}
+	for name := range used {
+		add(name)
+	}
+	return out
+}
+
+// schemaForExpr converts a Go AST expression to a (schema, refName) pair.
+// If refName != "", schema is a $ref to that component.
+func (m *meta) schemaForExpr(expr ast.Expr) (map[string]any, string) {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		switch t.Name {
+		case "string":
+			return map[string]any{"type": "string"}, ""
+		case "bool":
+			return map[string]any{"type": "boolean"}, ""
+		case "int", "int32":
+			return map[string]any{"type": "integer", "format": "int32"}, ""
+		case "int64":
+			return map[string]any{"type": "integer", "format": "int64"}, ""
+		case "float32":
+			return map[string]any{"type": "number", "format": "float"}, ""
+		case "float64":
+			return map[string]any{"type": "number", "format": "double"}, ""
+		default:
+			// If it's a known struct, reference it; otherwise fallback to string
+			if _, ok := m.structs[t.Name]; ok {
+				return map[string]any{"$ref": "#/components/schemas/" + t.Name}, t.Name
+			}
+			return map[string]any{"type": "string"}, ""
+		}
+	case *ast.StarExpr:
+		if id, ok := t.X.(*ast.Ident); ok {
+			if _, ok := m.structs[id.Name]; ok {
+				return map[string]any{"$ref": "#/components/schemas/" + id.Name}, id.Name
+			}
+			// pointer to primitive
+			return m.schemaForExpr(id)
+		}
+		return map[string]any{"type": "string"}, ""
+	case *ast.ArrayType:
+		itemSchema, ref := m.schemaForExpr(t.Elt)
+		arr := map[string]any{"type": "array", "items": itemSchema}
+		return arr, ref
+	case *ast.MapType:
+		// additionalProperties
+		valSchema, ref := m.schemaForExpr(t.Value)
+		obj := map[string]any{"type": "object", "additionalProperties": valSchema}
+		return obj, ref
+	case *ast.SelectorExpr:
+		// external types → string
+		return map[string]any{"type": "string"}, ""
+	default:
+		return map[string]any{"type": "string"}, ""
 	}
 }
 
