@@ -59,7 +59,9 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 
 	// Generate OpenAPI JSON now so we can embed it into the code
 	b, _ := m.generateOpenAPIWithTemplates()
-	m.OpenAPIFileJSON = string(b)
+
+	ss := strings.ReplaceAll(fmt.Sprint(b), " ", ",")
+	m.OpenAPIFileByte = ss[1 : len(ss)-1]
 	m.SwaggerHTML = SWAGGER_HTML
 
 	// Load template

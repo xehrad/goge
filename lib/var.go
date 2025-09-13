@@ -26,7 +26,7 @@ type (
 		libPath string
 
 		// Generated artifacts for templates
-		OpenAPIFileJSON string
+		OpenAPIFileByte string
 		SwaggerHTML     string
 	}
 
