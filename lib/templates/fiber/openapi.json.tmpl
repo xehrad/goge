@@ -1,6 +1,14 @@
 {
   {{ .OpenAPIMetaJSON }},
-
+  "tags": [
+    {{- range $i, $t := .Tags }}
+    {{- if $i}},{{ end }}
+    {
+      "name": "{{ $t.Name }}",
+      "description": "{{ $t.Description }}"
+    }
+    {{- end }}
+  ],
   "paths": {
     {{- range $i, $p := .Paths }}
     {{- if $i}},{{ end }}

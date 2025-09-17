@@ -10,8 +10,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"text/template"
+	"unicode"
 )
 
 func (m *meta) generateOpenAPIWithTemplates() (_ []byte, err error) {
@@ -45,10 +47,11 @@ func (m *meta) generateOpenAPIWithTemplates() (_ []byte, err error) {
 	return buf.Bytes(), nil
 }
 
-func (m *meta) buildOpenAPIData() openAPIData {
+func (m *meta) buildOpenAPIData() *openAPIData {
+	output := new(openAPIData)
+
 	// Group methods by path
 	byPath := map[string]*openAPIPath{}
-
 	for _, api := range m.APIs {
 		method := strings.ToLower(api.Method)
 		oasPath := toOpenAPIPath(api.Path)
@@ -115,14 +118,20 @@ func (m *meta) buildOpenAPIData() openAPIData {
 	}
 
 	// Flatten to slice to have deterministic template iteration order
-	paths := make([]openAPIPath, 0, len(byPath))
+	output.Paths = make([]openAPIPath, 0, len(byPath))
+
+	tagsMap := make(map[string]any, 64)
 	for _, p := range byPath {
-		paths = append(paths, *p)
+		output.Paths = append(output.Paths, *p)
+		tagsMap[p.Tag] = nil
 	}
+
+	// Sort Tags
+	output.Tags = sortedTagsKeys(tagsMap)
 
 	// Build components.schemas for used types (params + responses)
 	used := map[string]bool{}
-	for _, p := range paths {
+	for _, p := range output.Paths {
 		for _, me := range p.Methods {
 			if me.RequestBodyRef != "" {
 				used[me.RequestBodyRef] = true
@@ -134,17 +143,15 @@ func (m *meta) buildOpenAPIData() openAPIData {
 	}
 	schemas := m.buildSchemas(used)
 	schemasJSONBytes, _ := json.Marshal(schemas)
+	output.ComponentsSchemasJSON = string(schemasJSONBytes)
 
 	// Load meta from file if present
 	oMeta := m.loadOpenAPIMeta()
 	oMetaJson, _ := json.Marshal(oMeta)
 	oMetaJson = oMetaJson[1 : len(oMetaJson)-1] // remove '{' and '}' of JSON
+	output.OpenAPIMetaJSON = string(oMetaJson)
 
-	return openAPIData{
-		OpenAPIMetaJSON:       string(oMetaJson),
-		Paths:                 paths,
-		ComponentsSchemasJSON: string(schemasJSONBytes),
-	}
+	return output
 }
 
 // loadOpenAPIMeta reads meta.json from the lib path to fill OpenAPI version and Info.
@@ -156,15 +163,16 @@ func (m *meta) loadOpenAPIMeta() *openAPIMeta {
 	oMeta.Info.Title = "API Core"
 	oMeta.Info.Description = "Goge has generated this API. To modify this description, please add the file meta.json."
 	oMeta.Info.TermsOfService = "https://github.com/xehrad/goge"
+	oMeta.Info.Version = "0.0.1"
 
 	b, err := os.ReadFile(_OPEN_API_META_FILE_NAME)
 	if err != nil {
-		log.Printf("Err loadOpenAPIMeta, read file %s, err:%s", _OPEN_API_META_FILE_NAME, err.Error())
+		log.Printf("Warning, open file %s", _OPEN_API_META_FILE_NAME)
 		return oMeta
 	}
 
 	if err := json.Unmarshal(b, oMeta); err != nil {
-		log.Printf("Err loadOpenAPIMeta, Unmarshal json file %s, err:%s", _OPEN_API_META_FILE_NAME, err.Error())
+		log.Printf("Warning unmarshal json file %s, err:%s", _OPEN_API_META_FILE_NAME, err.Error())
 		return oMeta
 	}
 
@@ -280,11 +288,55 @@ func getBaseRoot(p string) string {
 	if trimmed == "" {
 		return ""
 	}
-	return strings.Split(trimmed, "/")[0]
+
+	tag := strings.Split(trimmed, "/")[0]
+	return ToCamelCaseTitle(tag)
 }
 
 // Replace :param with {param}
 func toOpenAPIPath(p string) string {
 	re := regexp.MustCompile(`:([a-zA-Z0-9_]+)`)
 	return re.ReplaceAllString(p, `{$1}`)
+}
+
+func sortedTagsKeys(m map[string]any) []openAPITag {
+	if len(m) == 0 {
+		return nil
+	}
+
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+
+	out := make([]openAPITag, 0, len(keys))
+	for _, t := range keys {
+		out = append(out, openAPITag{Name: t})
+	}
+
+	return out
+}
+
+func ToCamelCaseTitle(s string) string {
+	// Split on underscores or dashes
+	parts := strings.FieldsFunc(s, func(r rune) bool {
+		return r == '_' || r == '-'
+	})
+
+	for i, p := range parts {
+		if len(p) == 0 {
+			continue
+		}
+		runes := []rune(p)
+		// Capitalize first letter
+		runes[0] = unicode.ToUpper(runes[0])
+		// Lowercase the rest
+		for j := 1; j < len(runes); j++ {
+			runes[j] = unicode.ToLower(runes[j])
+		}
+		parts[i] = string(runes)
+	}
+
+	return strings.Join(parts, " ")
 }

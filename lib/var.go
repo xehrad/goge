@@ -56,6 +56,12 @@ type (
 		ComponentsSchemasJSON string // JSON string for the value of components.schemas
 		OpenAPIMetaJSON       string // JSON string for the value of Info and other metadata
 		Paths                 []openAPIPath
+		Tags                  []openAPITag `json:"tags,omitempty"`
+	}
+
+	openAPITag struct {
+		Name        string `json:"name,omitempty"`
+		Description string `json:"description,omitempty"`
 	}
 
 	openAPIMeta struct {
