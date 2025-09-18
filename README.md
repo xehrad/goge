@@ -47,8 +47,8 @@ It automatically creates API handlers and OpenAPI specs from annotated Go functi
 
 
   func GogeRouter(app *fiber.App) {
-	  app.Add("GET",  "/swagger", SwaggerUIHandler) // Swagger endpoints
-    app.Add("POST", "/ping/:id", PingHandler)    // API endpoints
+    app.Add("GET",  "/swagger", SwaggerUIHandler) // Swagger endpoints
+    app.Add("POST", "/ping/:id", PingHandler)     // API endpoints
   }
   ```
 
