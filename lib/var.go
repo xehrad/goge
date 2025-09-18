@@ -136,7 +136,7 @@ const SWAGGER_HTML = `
   <script>
     window.onload = () => {
       window.ui = SwaggerUIBundle({
-        url: '/swagger.json',
+        url: 'swagger.json',
         dom_id: '#swagger-ui'
       });
     };
