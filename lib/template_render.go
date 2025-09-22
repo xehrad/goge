@@ -3,10 +3,12 @@ package lib
 import (
 	"bytes"
 	"fmt"
+	"go/ast"
 	"go/format"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"text/template"
 )
@@ -22,6 +24,9 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 	// Build bindings and flags (BodyParse) for each API
 	for i := range m.APIs {
 		api := &m.APIs[i]
+		if api.ParamsExpr == "" {
+			api.ParamsExpr = api.ParamsType
+		}
 		api.BodyParse = isBodyParse(api)
 		if st := m.structs[api.ParamsType]; st != nil {
 			for _, field := range m.collectFields(st) {
@@ -29,33 +34,63 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 					continue
 				}
 				name := field.Names[0].Name
+				if api.ParamsPkg != "" && !ast.IsExported(name) {
+					continue
+				}
 				stag := reflect.StructTag(strings.Trim(field.Tag.Value, "`"))
 				if val, ok := stag.Lookup(_TAG_HEADER); ok {
-					api.Binds = append(
-						api.Binds,
-						fieldBind{Name: name, Kind: "header", Key: val},
-					)
+					key, opts := parseTagBindingValue(val)
+					bind := fieldBind{
+						Name:      name,
+						Kind:      "header",
+						Key:       key,
+						ValueKind: "string",
+					}
+					if raw, ok := opts["default"]; ok {
+						raw = strings.TrimSpace(raw)
+						if goLit, valid := defaultLiteralForKind("string", raw); valid {
+							bind.HasDefault = true
+							bind.DefaultRaw = raw
+							bind.DefaultGoValue = goLit
+						}
+					}
+					api.Binds = append(api.Binds, bind)
 				}
 				if val, ok := stag.Lookup(_TAG_QUERY); ok {
-					api.Binds = append(
-						api.Binds,
-						fieldBind{
-							Name:      name,
-							Kind:      "query",
-							Key:       val,
-							QueryFunc: fiberQueryMethodForType(field.Type),
-						},
-					)
+					key, opts := parseTagBindingValue(val)
+					valueKind := inferValueKind(field.Type)
+					bind := fieldBind{
+						Name:      name,
+						Kind:      "query",
+						Key:       key,
+						QueryFunc: fiberQueryMethodForType(field.Type),
+						ValueKind: valueKind,
+					}
+					if raw, ok := opts["default"]; ok {
+						raw = strings.TrimSpace(raw)
+						if goLit, valid := defaultLiteralForKind(valueKind, raw); valid {
+							bind.HasDefault = true
+							bind.DefaultRaw = raw
+							bind.DefaultGoValue = goLit
+						}
+					}
+					api.Binds = append(api.Binds, bind)
 				}
 				if val, ok := stag.Lookup(_TAG_URL); ok {
-					api.Binds = append(
-						api.Binds,
-						fieldBind{Name: name, Kind: "url", Key: val},
-					)
+					key, _ := parseTagBindingValue(val)
+					bind := fieldBind{
+						Name:      name,
+						Kind:      "url",
+						Key:       key,
+						ValueKind: "string",
+					}
+					api.Binds = append(api.Binds, bind)
 				}
 			}
 		}
 	}
+
+	m.buildExtraImports()
 
 	// Generate OpenAPI JSON now so we can embed it into the code
 	b, _ := m.generateOpenAPIWithTemplates()
@@ -108,4 +143,21 @@ func loadEmbeddedTemplate(name string) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func (m *meta) buildExtraImports() {
+	if len(m.imports) == 0 {
+		m.ExtraImports = nil
+		return
+	}
+	keys := make([]string, 0, len(m.imports))
+	for alias := range m.imports {
+		keys = append(keys, alias)
+	}
+	sort.Strings(keys)
+	imports := make([]importRef, 0, len(keys))
+	for _, alias := range keys {
+		imports = append(imports, importRef{Alias: alias, Path: m.imports[alias]})
+	}
+	m.ExtraImports = imports
 }

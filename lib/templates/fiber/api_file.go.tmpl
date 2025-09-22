@@ -5,6 +5,9 @@ package {{ .LibName }}
 
 import (
     "github.com/gofiber/fiber/v2"
+    {{ range .ExtraImports }}
+    {{ if .Alias }}{{ .Alias }} {{ end }}"{{ .Path }}"
+    {{ end }}
 )
 
 func GogeRouter(app *fiber.App) {
@@ -33,7 +36,7 @@ func SwaggerJSONHandler(c *fiber.Ctx) error {
 {{- range .APIs }}
 // {{ .Method }} - {{ .Path }}
 func {{ .FuncName }}Handler(c *fiber.Ctx) error {
-    req := new({{ .ParamsType }})
+    req := new({{ .ParamsExpr }})
     {{- if .BodyParse }}
     if err := c.BodyParser(req); err != nil {
         return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
@@ -42,10 +45,18 @@ func {{ .FuncName }}Handler(c *fiber.Ctx) error {
 
     {{- range .Binds }}
     {{- if eq .Kind "header" }}
+    {{- if .HasDefault }}
+    req.{{ .Name }} = c.Get("{{ .Key }}", {{ .DefaultGoValue }})
+    {{- else }}
     req.{{ .Name }} = c.Get("{{ .Key }}")
     {{- end }}
+    {{- end }}
     {{- if eq .Kind "query" }}
+    {{- if .HasDefault }}
+    req.{{ .Name }} = c.{{ .QueryFunc }}("{{ .Key }}", {{ .DefaultGoValue }})
+    {{- else }}
     req.{{ .Name }} = c.{{ .QueryFunc }}("{{ .Key }}")
+    {{- end }}
     {{- end }}
     {{- if eq .Kind "url" }}
     req.{{ .Name }} = c.Params("{{ .Key }}")

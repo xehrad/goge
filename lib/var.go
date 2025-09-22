@@ -18,9 +18,12 @@ const (
 
 type (
 	meta struct {
-		APIs     []metaAPI
-		structs  map[string]*ast.StructType
-		packages []*packages.Package
+		APIs         []metaAPI
+		structs      map[string]*ast.StructType
+		packages     []*packages.Package
+		imports      map[string]string
+		loadedPkgs   map[string]bool
+		ExtraImports []importRef
 
 		LibName string
 		libPath string
@@ -33,7 +36,10 @@ type (
 	metaAPI struct {
 		FuncName    string
 		ParamsType  string
+		ParamsExpr  string
+		ParamsPkg   string
 		RespType    string
+		RespPackage string
 		RespIsBytes bool
 		Method      string
 		Path        string
@@ -42,12 +48,22 @@ type (
 		Binds []fieldBind
 	}
 
+	importRef struct {
+		Alias string
+		Path  string
+	}
+
 	fieldBind struct {
 		Name string
 		Kind string // header|query|url
 		Key  string
 		// For Fiber at the moment: Query, QueryInt, QueryFloat, QueryBool
 		QueryFunc string
+		// Default handling for bindings (currently used for query params)
+		HasDefault     bool
+		DefaultRaw     string
+		DefaultGoValue string
+		ValueKind      string // string|int|float|bool (used for OpenAPI defaults)
 	}
 )
 
@@ -112,10 +128,12 @@ type (
 	}
 
 	openAPIParam struct {
-		Name     string
-		In       string // query, header, path
-		Required bool
-		Type     string // string (default)
+		Name        string
+		In          string // query, header, path
+		Required    bool
+		Type        string // string (default)
+		HasDefault  bool
+		DefaultJSON string
 	}
 )
 

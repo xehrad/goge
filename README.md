@@ -16,7 +16,7 @@ It automatically creates API handlers and OpenAPI specs from annotated Go functi
       ID    string `gogeUrl:"id"`              // read from the URL path
       Auth  string `gogeHeader:"Authorization"`// read from HTTP header
       Query string `gogeQuery:"filter"`        // read from the query String
-      Page  int    `gogeQuery:"page"`          // read from the query Int
+      Page  int    `gogeQuery:"page,default=1"`// read from the query Int
       Name  string `json:"name"`               // from POST/PATCH/PUT body
   }
 
@@ -39,7 +39,7 @@ It automatically creates API handlers and OpenAPI specs from annotated Go functi
     req.ID = c.Params("id")
     req.Auth = c.Get("Authorization")
     req.Query = c.Query("filter")
-    req.Page = c.QueryInt("page")
+    req.Page = c.QueryInt("page", 1)
 
     res, _ := Ping(c, req)
     return c.JSON(res)

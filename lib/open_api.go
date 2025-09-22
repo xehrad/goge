@@ -66,37 +66,42 @@ func (m *meta) buildOpenAPIData() *openAPIData {
 				if field.Tag == nil || len(field.Names) == 0 {
 					continue
 				}
+				name := field.Names[0].Name
+				if api.ParamsPkg != "" && !ast.IsExported(name) {
+					continue
+				}
 				tag := reflect.StructTag(strings.Trim(field.Tag.Value, "`"))
 				if val, ok := tag.Lookup(_TAG_QUERY); ok {
-					params = append(
-						params,
-						openAPIParam{
-							Name: val,
-							In:   "query",
-							Type: "string",
-						},
-					)
+					key, opts := parseTagBindingValue(val)
+					valueKind := inferValueKind(field.Type)
+					oapiParam := openAPIParam{
+						Name: key,
+						In:   "query",
+						Type: openAPITypeForKind(valueKind),
+					}
+					if raw, ok := opts["default"]; ok {
+						raw = strings.TrimSpace(raw)
+						if jsonLit, valid := defaultJSONLiteral(valueKind, raw); valid {
+							oapiParam.HasDefault = true
+							oapiParam.DefaultJSON = jsonLit
+						}
+					}
+					params = append(params, oapiParam)
 				}
 				if val, ok := tag.Lookup(_TAG_HEADER); ok {
-					params = append(
-						params,
-						openAPIParam{
-							Name: val,
-							In:   "header",
-							Type: "string",
-						},
-					)
+					params = append(params, openAPIParam{
+						Name: val,
+						In:   "header",
+						Type: "string",
+					})
 				}
 				if val, ok := tag.Lookup(_TAG_URL); ok {
-					params = append(
-						params,
-						openAPIParam{
-							Name:     val,
-							In:       "path",
-							Required: true,
-							Type:     "string",
-						},
-					)
+					params = append(params, openAPIParam{
+						Name:     val,
+						In:       "path",
+						Required: true,
+						Type:     "string",
+					})
 				}
 			}
 		}
@@ -111,8 +116,10 @@ func (m *meta) buildOpenAPIData() *openAPIData {
 		// Response schema
 		if api.RespIsBytes {
 			me.ResponseIsBinary = true
-		} else if _, ok := m.structs[api.RespType]; ok && api.RespType != "" {
-			me.ResponseRef = api.RespType
+		} else if api.RespPackage == "" {
+			if _, ok := m.structs[api.RespType]; ok && api.RespType != "" {
+				me.ResponseRef = api.RespType
+			}
 		}
 		byPath[oasPath].Methods = append(byPath[oasPath].Methods, me)
 	}
@@ -152,6 +159,19 @@ func (m *meta) buildOpenAPIData() *openAPIData {
 	output.OpenAPIMetaJSON = string(oMetaJson)
 
 	return output
+}
+
+func openAPITypeForKind(kind string) string {
+	switch kind {
+	case "int":
+		return "integer"
+	case "float":
+		return "number"
+	case "bool":
+		return "boolean"
+	default:
+		return "string"
+	}
 }
 
 // loadOpenAPIMeta reads meta.json from the lib path to fill OpenAPI version and Info.

@@ -1,8 +1,11 @@
 package lib
 
 import (
+	"fmt"
 	"go/ast"
 	"log"
+	"path"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
@@ -27,6 +30,12 @@ func (g *meta) loadPackage() {
 		log.Fatal("packages.Load returned errors")
 	}
 	g.packages = pkgs
+	g.loadedPkgs = make(map[string]bool, len(pkgs))
+	for _, pkg := range pkgs {
+		if pkg != nil && pkg.PkgPath != "" {
+			g.loadedPkgs[pkg.PkgPath] = true
+		}
+	}
 }
 
 func (m *meta) analysis() {
@@ -53,21 +62,15 @@ func (m *meta) analysis() {
 					if !ok {
 						log.Fatalf("%s second param must be *Struct", fn.Name.Name)
 					}
-					paramsIdent, ok := paramsStar.X.(*ast.Ident)
-					if !ok {
-						log.Fatalf("%s second param must be *Struct (ident)", fn.Name.Name)
-					}
+					paramsTypeName, paramsExpr, paramsPkg := m.resolveStructType(fn.Name.Name, f, "second param", paramsStar.X, true)
 
 					// First result type name: allow pointer-to-struct or []byte
 					respIsBytes := false
 					respTypeName := ""
+					respPkg := ""
 					switch rt := fn.Type.Results.List[0].Type.(type) {
 					case *ast.StarExpr:
-						resIdent, ok := rt.X.(*ast.Ident)
-						if !ok {
-							log.Fatalf("%s first result must be *Struct (ident)", fn.Name.Name)
-						}
-						respTypeName = resIdent.Name
+						respTypeName, _, respPkg = m.resolveStructType(fn.Name.Name, f, "first result", rt.X, false)
 					case *ast.ArrayType:
 						// Allow []byte (or []uint8) as raw bytes
 						if id, ok := rt.Elt.(*ast.Ident); ok && (id.Name == "byte" || id.Name == "uint8") {
@@ -82,8 +85,11 @@ func (m *meta) analysis() {
 
 					m.APIs = append(m.APIs, metaAPI{
 						FuncName:    fn.Name.Name,
-						ParamsType:  paramsIdent.Name,
+						ParamsType:  paramsTypeName,
+						ParamsExpr:  paramsExpr,
+						ParamsPkg:   paramsPkg,
 						RespType:    respTypeName,
+						RespPackage: respPkg,
 						RespIsBytes: respIsBytes,
 						Method:      meta["method"],
 						Path:        meta["path"],
@@ -92,6 +98,99 @@ func (m *meta) analysis() {
 			}
 		}
 	}
+}
+
+func (m *meta) resolveStructType(fnName string, file *ast.File, context string, expr ast.Expr, registerImport bool) (string, string, string) {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t.Name, t.Name, ""
+	case *ast.SelectorExpr:
+		pkgIdent, ok := t.X.(*ast.Ident)
+		if !ok || pkgIdent.Name == "" {
+			log.Fatalf("%s %s must reference an imported type (package identifier)", fnName, context)
+		}
+		alias := pkgIdent.Name
+		pathValue, ok := m.importPathForAlias(file, alias)
+		if !ok {
+			log.Fatalf("%s %s references unknown import alias %q", fnName, context, alias)
+		}
+		if registerImport {
+			m.addImport(alias, pathValue)
+			m.loadAdditionalPackage(pathValue)
+		}
+		return t.Sel.Name, fmt.Sprintf("%s.%s", alias, t.Sel.Name), alias
+	default:
+		log.Fatalf("%s %s must be a struct identifier", fnName, context)
+	}
+	return "", "", ""
+}
+
+func (m *meta) loadAdditionalPackage(pathValue string) {
+	if pathValue == "" {
+		return
+	}
+	if m.loadedPkgs == nil {
+		m.loadedPkgs = make(map[string]bool)
+	}
+	if m.loadedPkgs[pathValue] {
+		return
+	}
+	cfg := &packages.Config{
+		Mode: packages.NeedName |
+			packages.NeedFiles |
+			packages.NeedCompiledGoFiles |
+			packages.NeedSyntax |
+			packages.NeedTypes |
+			packages.NeedTypesInfo,
+	}
+	pkgs, err := packages.Load(cfg, pathValue)
+	if err != nil {
+		log.Printf("goge warning: load package %s failed: %v", pathValue, err)
+		m.loadedPkgs[pathValue] = true
+		return
+	}
+	if packages.PrintErrors(pkgs) > 0 {
+		log.Printf("goge warning: package %s reported errors", pathValue)
+	}
+	m.packages = append(m.packages, pkgs...)
+	for _, pkg := range pkgs {
+		if pkg != nil && pkg.PkgPath != "" {
+			m.loadedPkgs[pkg.PkgPath] = true
+		}
+	}
+}
+
+func (m *meta) importPathForAlias(file *ast.File, alias string) (string, bool) {
+	for _, spec := range file.Imports {
+		pathValue, err := strconv.Unquote(spec.Path.Value)
+		if err != nil {
+			log.Fatalf("invalid import path %s: %v", spec.Path.Value, err)
+		}
+		name := path.Base(pathValue)
+		if spec.Name != nil {
+			name = spec.Name.Name
+		}
+		if name == alias {
+			return pathValue, true
+		}
+	}
+	return "", false
+}
+
+func (m *meta) addImport(alias, importPath string) {
+	if alias == "" {
+		return
+	}
+	if m.imports == nil {
+		m.imports = make(map[string]string)
+	}
+	if existing, ok := m.imports[alias]; ok {
+		if existing != importPath {
+			log.Fatalf("conflicting import aliases %q for %s and %s", alias, existing, importPath)
+		}
+		return
+	}
+	m.imports[alias] = importPath
 }
 
 // Store struct definitions from syntax
