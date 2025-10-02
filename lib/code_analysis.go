@@ -242,18 +242,35 @@ func (m *meta) collectFields(st *ast.StructType) []*ast.Field {
 	for _, f := range st.Fields.List {
 		// If the field is embedded (anonymous)
 		if len(f.Names) == 0 {
-			// Check if it's a struct we know
-			if ident, ok := f.Type.(*ast.Ident); ok {
-				if embedded, exists := m.structs[ident.Name]; exists {
-					// Recurse into embedded struct
-					fields = append(fields, m.collectFields(embedded)...)
+			// Check if it's a struct we know (including selector and pointer types)
+			if embedded, ok := m.lookupStructForEmbeddedField(f.Type); ok && embedded != nil {
+				// Prevent infinite recursion on self-embedding types
+				if embedded == st {
 					continue
 				}
+				fields = append(fields, m.collectFields(embedded)...)
+				continue
 			}
 		}
 		fields = append(fields, f)
 	}
 	return fields
+}
+
+// lookupStructForEmbeddedField resolves the struct definition for an embedded field.
+func (m *meta) lookupStructForEmbeddedField(expr ast.Expr) (*ast.StructType, bool) {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		st, ok := m.structs[t.Name]
+		return st, ok
+	case *ast.SelectorExpr:
+		st, ok := m.structs[t.Sel.Name]
+		return st, ok
+	case *ast.StarExpr:
+		return m.lookupStructForEmbeddedField(t.X)
+	default:
+		return nil, false
+	}
 }
 
 // fiberQueryMethodForType returns the Fiber query accessor method name for a given type.
