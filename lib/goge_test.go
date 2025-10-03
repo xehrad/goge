@@ -275,6 +275,56 @@ func TestCollectFieldsWithSelectorEmbeddedStruct(t *testing.T) {
 	}
 }
 
+func TestGenerateNoDuplicateBindingsForNestedEmbeds(t *testing.T) {
+	g := &meta{
+		APIs: []metaAPI{{
+			FuncName:   "userUpdate",
+			ParamsType: "UpdateUser",
+			Method:     "PATCH",
+			Path:       "/user/:first_id",
+		}},
+		structs: map[string]*ast.StructType{
+			"UpdateUser": {
+				Fields: &ast.FieldList{List: []*ast.Field{
+					{Type: &ast.SelectorExpr{X: &ast.Ident{Name: "request"}, Sel: &ast.Ident{Name: "ReqFirstIndex"}}},
+					{Type: &ast.Ident{Name: "RegisterUser"}},
+				}},
+			},
+			"RegisterUser": {
+				Fields: &ast.FieldList{List: []*ast.Field{
+					{Type: &ast.SelectorExpr{X: &ast.Ident{Name: "request"}, Sel: &ast.Ident{Name: "ReqFirstIndex"}}},
+				}},
+			},
+			"ReqFirstIndex": {
+				Fields: &ast.FieldList{List: []*ast.Field{
+					{Names: []*ast.Ident{{Name: "KtLimit"}}, Type: &ast.Ident{Name: "int"}, Tag: &ast.BasicLit{Value: "`" + _TAG_QUERY + ":\"limit,default=128\"`"}},
+					{Names: []*ast.Ident{{Name: "KtToken"}}, Type: &ast.Ident{Name: "string"}, Tag: &ast.BasicLit{Value: "`" + _TAG_HEADER + ":\"KT_TOKEN\"`"}},
+					{Names: []*ast.Ident{{Name: "FirstIndex"}}, Type: &ast.Ident{Name: "string"}, Tag: &ast.BasicLit{Value: "`" + _TAG_URL + ":\"first_id\"`"}},
+				}},
+			},
+		},
+		LibName: "lib",
+	}
+
+	src, err := g.generateWithTemplates()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(g.APIs[0].Binds) != 3 {
+		t.Fatalf("expected 3 binds, got %d", len(g.APIs[0].Binds))
+	}
+	code := string(src)
+	if strings.Count(code, `c.QueryInt("limit", 128)`) != 1 {
+		t.Fatalf("expected single query binding, got:\n%s", code)
+	}
+	if strings.Count(code, `c.Get("KT_TOKEN")`) != 1 {
+		t.Fatalf("expected single header binding, got:\n%s", code)
+	}
+	if strings.Count(code, `c.Params("first_id")`) != 1 {
+		t.Fatalf("expected single url binding, got:\n%s", code)
+	}
+}
+
 func TestGenerateBodyParserForPost(t *testing.T) {
 	g := &meta{
 		APIs: []metaAPI{{

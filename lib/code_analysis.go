@@ -235,26 +235,29 @@ func parseComment(comment string) map[string]string {
 
 // collectFields flattens fields of a struct, including embedded ones.
 func (m *meta) collectFields(st *ast.StructType) []*ast.Field {
-	var fields []*ast.Field
-	if st == nil || st.Fields == nil {
-		return fields
-	}
-	for _, f := range st.Fields.List {
-		// If the field is embedded (anonymous)
-		if len(f.Names) == 0 {
-			// Check if it's a struct we know (including selector and pointer types)
-			if embedded, ok := m.lookupStructForEmbeddedField(f.Type); ok && embedded != nil {
-				// Prevent infinite recursion on self-embedding types
-				if embedded == st {
-					continue
-				}
-				fields = append(fields, m.collectFields(embedded)...)
-				continue
-			}
-		}
-		fields = append(fields, f)
-	}
-	return fields
+    return m.collectFieldsInternal(st, make(map[*ast.StructType]bool))
+}
+
+func (m *meta) collectFieldsInternal(st *ast.StructType, visited map[*ast.StructType]bool) []*ast.Field {
+    var fields []*ast.Field
+    if st == nil || st.Fields == nil {
+        return fields
+    }
+    if visited[st] {
+        return fields
+    }
+    visited[st] = true
+    for _, f := range st.Fields.List {
+        // If the field is embedded (anonymous)
+        if len(f.Names) == 0 {
+            if embedded, ok := m.lookupStructForEmbeddedField(f.Type); ok && embedded != nil {
+                fields = append(fields, m.collectFieldsInternal(embedded, visited)...)
+                continue
+            }
+        }
+        fields = append(fields, f)
+    }
+    return fields
 }
 
 // lookupStructForEmbeddedField resolves the struct definition for an embedded field.
