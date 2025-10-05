@@ -103,6 +103,22 @@ func (m *meta) buildOpenAPIData() *openAPIData {
 						Type:     "string",
 					})
 				}
+				if val, ok := tag.Lookup(_TAG_COOKIE); ok {
+					key, opts := parseTagBindingValue(val)
+					param := openAPIParam{
+						Name: key,
+						In:   "cookie",
+						Type: "string",
+					}
+					if raw, ok := opts["default"]; ok {
+						raw = strings.TrimSpace(raw)
+						if jsonLit, valid := defaultJSONLiteral("string", raw); valid {
+							param.HasDefault = true
+							param.DefaultJSON = jsonLit
+						}
+					}
+					params = append(params, param)
+				}
 			}
 		}
 

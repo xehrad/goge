@@ -86,6 +86,24 @@ func (m *meta) generateWithTemplates() ([]byte, error) {
 					}
 					api.Binds = append(api.Binds, bind)
 				}
+				if val, ok := stag.Lookup(_TAG_COOKIE); ok {
+					key, opts := parseTagBindingValue(val)
+					bind := fieldBind{
+						Name:      name,
+						Kind:      "cookie",
+						Key:       key,
+						ValueKind: "string",
+					}
+					if raw, ok := opts["default"]; ok {
+						raw = strings.TrimSpace(raw)
+						if goLit, valid := defaultLiteralForKind("string", raw); valid {
+							bind.HasDefault = true
+							bind.DefaultRaw = raw
+							bind.DefaultGoValue = goLit
+						}
+					}
+					api.Binds = append(api.Binds, bind)
+				}
 			}
 		}
 	}

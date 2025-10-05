@@ -61,6 +61,13 @@ func {{ .FuncName }}Handler(c *fiber.Ctx) error {
     {{- if eq .Kind "url" }}
     req.{{ .Name }} = c.Params("{{ .Key }}")
     {{- end }}
+    {{- if eq .Kind "cookie" }}
+    {{- if .HasDefault }}
+    req.{{ .Name }} = c.Cookies("{{ .Key }}", {{ .DefaultGoValue }})
+    {{- else }}
+    req.{{ .Name }} = c.Cookies("{{ .Key }}")
+    {{- end }}
+    {{- end }}
     {{- end }}
 
     res, err := {{ .FuncName }}(c, req)

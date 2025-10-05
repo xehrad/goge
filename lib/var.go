@@ -14,6 +14,7 @@ const (
 	_TAG_HEADER                = "gogeHeader"
 	_TAG_QUERY                 = "gogeQuery"
 	_TAG_URL                   = "gogeUrl"
+	_TAG_COOKIE                = "gogeCookie"
 )
 
 type (
@@ -55,7 +56,7 @@ type (
 
 	fieldBind struct {
 		Name string
-		Kind string // header|query|url
+		Kind string // header|query|url|cookie
 		Key  string
 		// For Fiber at the moment: Query, QueryInt, QueryFloat, QueryBool
 		QueryFunc string
