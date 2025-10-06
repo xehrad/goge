@@ -3,6 +3,7 @@ module github.com/xehrad/goge
 go 1.24.3
 
 require (
+	github.com/fatih/structtag v1.2.0 // indirect (safe to keep, future-proof)
 	github.com/gofiber/fiber/v2 v2.52.9
 	golang.org/x/tools v0.36.0
 )
