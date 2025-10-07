@@ -25,12 +25,11 @@ var tpl = template.Must(template.New("handler").Parse(`
 	package {{.PkgName}}
 
 	import (
-		"gaas/pkg/request"
+		"gaas/pkg/response"
+		"github.com/gofiber/fiber/v2"
 		{{- range .ExtraImports }}
 			"{{ . }}"
 		{{- end }}
-		
-		"github.com/gofiber/fiber/v2"
 	)
 
 	type (
@@ -55,30 +54,36 @@ var tpl = template.Must(template.New("handler").Parse(`
 
 	{{- range .Endpoints }}
 
+		{{- if .ManualFunc }}
 		func (h *Handler) {{ .MethodName }}(c *fiber.Ctx) error {
-		{{- if .InputIsStruct }}
-			{{ .ReqAlloc }}
-			{{- if .NeedsBodyParser }}
-				if err := c.BodyParser(req); err != nil {
-					return fiber.ErrBadRequest
-				}
-			{{- end }}
-				{{ .BindingCode }}
-				res, err := h.service.{{ .MethodName }}({{ .CallArg }})
-		{{- else }}
-				// Primitive input; bind from path or query
-				{{ .PrimitiveBind }}
-				res, err := h.service.{{ .MethodName }}({{ .CallArg }})
-		{{- end }}
-				if err != nil {
-					return err
-				}
-		{{- if .ReturnIsBytes }}
-				return c.Send(res)
-		{{- else }}
-				return c.JSON(res)
-		{{- end }}
+			return h.{{ .ManualFunc }}(c)
 		}
+		{{- else }}
+		func (h *Handler) {{ .MethodName }}(c *fiber.Ctx) error {
+			{{- if .InputIsStruct }}
+					{{ .ReqAlloc }}
+					{{- if .NeedsBodyParser }}
+					if err := c.BodyParser(req); err != nil {
+						return fiber.ErrBadRequest
+					}
+					{{- end }}
+					{{ .BindingCode }}
+					res, err := h.service.{{ .MethodName }}({{ .CallArg }})
+			{{- else }}
+					// Primitive input; bind from path or query
+					{{ .PrimitiveBind }}
+					res, err := h.service.{{ .MethodName }}({{ .CallArg }})
+			{{- end }}
+					if err != nil {
+						return err
+					}
+			{{- if .ReturnIsBytes }}
+					return c.Send(res)
+			{{- else }}
+					return c.JSON(response.ResponseDataOK(res))
+			{{- end }}
+		}
+		{{- end }}
 	{{- end }}
 `))
 
@@ -97,6 +102,7 @@ type endpointVM struct {
 	ReqAlloc        string
 	BindingCode     string
 	NeedsBodyParser bool
+	ManualFunc      string
 }
 
 type pkgVM struct {
@@ -125,6 +131,7 @@ func Generate(root string, apis map[string]*scanner.PackageAPIs) error {
 		}
 
 		for _, ep := range pkg.Endpoints {
+			isManual := ep.ManualFunc != ""
 			ev := endpointVM{
 				MethodName:    ep.MethodName,
 				HTTPMethod:    strings.Title(strings.ToLower(ep.HTTPMethod)),
@@ -133,11 +140,12 @@ func Generate(root string, apis map[string]*scanner.PackageAPIs) error {
 				InputTypeExpr: ep.InputTypeExpr,
 				ReturnType:    ep.ReturnTypeExpr,
 				ReturnIsBytes: ep.ReturnTypeExpr == "[]byte",
+				ManualFunc:    ep.ManualFunc,
 			}
 
 			// detect if BodyParser needed
 			method := strings.ToUpper(ep.HTTPMethod)
-			if method == "POST" || method == "PUT" || method == "PATCH" {
+			if !isManual && (method == "POST" || method == "PUT" || method == "PATCH") {
 				ev.NeedsBodyParser = true
 			}
 
@@ -148,11 +156,13 @@ func Generate(root string, apis map[string]*scanner.PackageAPIs) error {
 				ev.InputArg = "req " + ep.InputTypeExpr
 				ev.ReqAlloc = fmt.Sprintf("req := new(%s)", base)
 
-				// parse struct (local or imported)
-				st := findStructAST(root, pkg, base)
-				if st != nil {
-					binds := ExtractBindingsRecursive(pkg, st)
-					ev.BindingCode = BuildBindCode(binds)
+				if !isManual {
+					// parse struct (local or imported)
+					st := findStructAST(root, pkg, base)
+					if st != nil {
+						binds := ExtractBindingsRecursive(pkg, st)
+						ev.BindingCode = BuildBindCode(binds)
+					}
 				}
 
 				if paramIsPtr {
@@ -165,12 +175,14 @@ func Generate(root string, apis map[string]*scanner.PackageAPIs) error {
 				if name == "" {
 					name = "v"
 				}
-				code, needStrconv := primitiveBind(name, ep.InputTypeExpr)
-				ev.PrimitiveBind = code
 				ev.InputArg = fmt.Sprintf("%s %s", name, strings.TrimPrefix(ep.InputTypeExpr, "*"))
 				ev.CallArg = name
-				if needStrconv {
-					vm.ExtraImports = append(vm.ExtraImports, "strconv")
+				if !isManual {
+					code, needStrconv := primitiveBind(name, ep.InputTypeExpr)
+					ev.PrimitiveBind = code
+					if needStrconv {
+						vm.ExtraImports = append(vm.ExtraImports, "strconv")
+					}
 				}
 			}
 

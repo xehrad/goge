@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"maps"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -23,6 +24,7 @@ type Endpoint struct {
 	ReturnTypeExpr string
 	InputIsPtr     bool
 	Imports        map[string]string // alias => import path (for generated file)
+	ManualFunc     string
 }
 
 type PackageAPIs struct {
@@ -33,7 +35,7 @@ type PackageAPIs struct {
 }
 
 // Parse `//goge:api method=POST path=/user`
-var gogeRe = regexp.MustCompile(`^goge:api\s+method=([A-Z]+)\s+path=([^\s]+)\s*$`)
+var gogeRe = regexp.MustCompile(`^goge:api\s+method=([A-Z]+)\s+path=([^\s]+)(?:\s+manual_func=([A-Za-z0-9_]+))?\s*$`)
 
 func Scan(root string) (map[string]*PackageAPIs, error) {
 	result := map[string]*PackageAPIs{}
@@ -87,11 +89,12 @@ func Scan(root string) (map[string]*PackageAPIs, error) {
 			if !ok || fn.Doc == nil {
 				continue
 			}
-			var httpMethod, httpPath string
+			var httpMethod, httpPath, manualFunc string
 			for _, c := range fn.Doc.List {
 				txt := strings.TrimPrefix(strings.TrimSpace(c.Text), "//")
 				if m := gogeRe.FindStringSubmatch(txt); m != nil {
 					httpMethod, httpPath = m[1], m[2]
+					manualFunc = m[3]
 					break
 				}
 			}
@@ -133,6 +136,7 @@ func Scan(root string) (map[string]*PackageAPIs, error) {
 				InputIsPtr:     inputIsPtr,
 				Imports:        imports,
 				ReturnTypeExpr: retTypeExpr,
+				ManualFunc:     manualFunc,
 			}
 
 			pkg := result[pkgDir]
@@ -141,9 +145,7 @@ func Scan(root string) (map[string]*PackageAPIs, error) {
 				result[pkgDir] = pkg
 			}
 			// merge imports
-			for k, v := range imports {
-				pkg.Imports[k] = v
-			}
+			maps.Copy(pkg.Imports, imports)
 			pkg.Endpoints = append(pkg.Endpoints, ep)
 		}
 		return nil
