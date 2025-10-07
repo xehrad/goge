@@ -25,10 +25,12 @@ var tpl = template.Must(template.New("handler").Parse(`
 	package {{.PkgName}}
 
 	import (
-		"github.com/gofiber/fiber/v2"
+		"gaas/pkg/request"
 		{{- range .ExtraImports }}
 			"{{ . }}"
 		{{- end }}
+		
+		"github.com/gofiber/fiber/v2"
 	)
 
 	type (

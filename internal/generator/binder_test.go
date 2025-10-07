@@ -22,7 +22,7 @@ func TestDefaultLiteral(t *testing.T) {
 
 func TestBuildBindCode_Simple(t *testing.T) {
 	code := BuildBindCode([]FieldBind{
-		{Name: "ID2", Kind: "url", Key: "id2"},
+		{Name: "ID", Kind: "url", Key: "id"},
 		{Name: "Token", Kind: "header", Key: "X-Token"},
 		{Name: "Limit", Kind: "query", Key: "limit", QueryFunc: "QueryInt", HasDefault: true, DefaultValue: "10", KindHint: kindInt},
 		{Name: "Enable", Kind: "query", Key: "enable", QueryFunc: "QueryBool", HasDefault: true, DefaultValue: "true", KindHint: kindBool},
@@ -30,7 +30,7 @@ func TestBuildBindCode_Simple(t *testing.T) {
 	})
 
 	want := []string{
-		`req.ID2 = c.Params("id2")`,
+		`req.ID = c.Params("id")`,
 		`req.Token = c.Get("X-Token")`,
 		`req.Limit = c.QueryInt("limit", 10)`,
 		`req.Enable = c.QueryBool("enable", true)`,
