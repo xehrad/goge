@@ -261,7 +261,12 @@ func primitiveBind(name, typ string) (string, bool) {
 // --- AST parsing helpers ---
 
 type astStruct struct {
-	Struct *ast.StructType
+	Name       string
+	Struct     *ast.StructType
+	pkgDir     string
+	ImportPath string
+	moduleDir  string
+	loader     func(name string) *astStruct
 }
 
 func parseStructAST(pkgDir, structName string) *astStruct {
@@ -287,7 +292,13 @@ func parseStructAST(pkgDir, structName string) *astStruct {
 					continue
 				}
 				if st, ok := ts.Type.(*ast.StructType); ok {
-					return &astStruct{Struct: st}
+					loader := func(name string) *astStruct { return parseStructAST(pkgDir, name) }
+					return &astStruct{
+						Name:   structName,
+						Struct: st,
+						pkgDir: pkgDir,
+						loader: loader,
+					}
 				}
 			}
 		}
@@ -295,11 +306,35 @@ func parseStructAST(pkgDir, structName string) *astStruct {
 	return nil
 }
 
-func (a *astStruct) Fields() *ast.FieldList {
-	if a == nil || a.Struct == nil {
+func (a *astStruct) Fields() []*ast.Field {
+	if a == nil || a.Struct == nil || a.Struct.Fields == nil {
 		return nil
 	}
-	return a.Struct.Fields
+	return a.Struct.Fields.List
+}
+
+func (a *astStruct) load(name string) *astStruct {
+	if a == nil || name == "" || a.loader == nil {
+		return nil
+	}
+	if name == a.Name {
+		return a
+	}
+	return a.loader(name)
+}
+
+func (a *astStruct) key() string {
+	if a == nil {
+		return ""
+	}
+	switch {
+	case a.ImportPath != "":
+		return a.ImportPath + "." + a.Name
+	case a.pkgDir != "":
+		return a.pkgDir + "." + a.Name
+	default:
+		return a.Name
+	}
 }
 
 func findModuleRoot(dir string) string {
@@ -323,12 +358,19 @@ func loadStructFromImport(importPath, structName, moduleDir string) *astStruct {
 	if importPath == "" || structName == "" {
 		return nil
 	}
+	loader := func(name string) *astStruct { return loadStructFromImport(importPath, name, moduleDir) }
 
 	externalStructCache.RLock()
 	if structs, ok := externalStructCache.structs[importPath]; ok {
 		if st, ok := structs[structName]; ok {
 			externalStructCache.RUnlock()
-			return &astStruct{Struct: st}
+			return &astStruct{
+				Name:       structName,
+				Struct:     st,
+				ImportPath: importPath,
+				moduleDir:  moduleDir,
+				loader:     loader,
+			}
 		}
 	}
 	if externalStructCache.fails[importPath] {
@@ -342,7 +384,13 @@ func loadStructFromImport(importPath, structName, moduleDir string) *astStruct {
 
 	if structs, ok := externalStructCache.structs[importPath]; ok {
 		if st, ok := structs[structName]; ok {
-			return &astStruct{Struct: st}
+			return &astStruct{
+				Name:       structName,
+				Struct:     st,
+				ImportPath: importPath,
+				moduleDir:  moduleDir,
+				loader:     loader,
+			}
 		}
 	}
 	if externalStructCache.fails[importPath] {
@@ -393,7 +441,13 @@ func loadStructFromImport(importPath, structName, moduleDir string) *astStruct {
 
 	externalStructCache.structs[importPath] = structs
 	if st, ok := structs[structName]; ok {
-		return &astStruct{Struct: st}
+		return &astStruct{
+			Name:       structName,
+			Struct:     st,
+			ImportPath: importPath,
+			moduleDir:  moduleDir,
+			loader:     loader,
+		}
 	}
 	return nil
 }

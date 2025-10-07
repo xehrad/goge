@@ -18,6 +18,13 @@ const (
 	kindBool
 )
 
+const (
+	_TAG_HEADER = "gogeHeader"
+	_TAG_QUERY  = "gogeQuery"
+	_TAG_URL    = "gogeUrl"
+	_TAG_COOKIE = "gogeCookie"
+)
+
 type FieldBind struct {
 	Name         string
 	Kind         string // header|query|url|cookie
@@ -28,20 +35,59 @@ type FieldBind struct {
 	KindHint     valKind
 }
 
-// ExtractBindingsRecursive handles embedded structs (BaseUser)
+// ExtractBindingsRecursive handles embedded structs
 func ExtractBindingsRecursive(pkg *scanner.PackageAPIs, st *astStruct) []FieldBind {
+	return extractBindingsRecursive(pkg, st, map[string]bool{})
+}
+
+func extractBindingsRecursive(pkg *scanner.PackageAPIs, st *astStruct, visited map[string]bool) []FieldBind {
+	if st == nil || st.Struct == nil {
+		return nil
+	}
+
+	if key := st.key(); key != "" {
+		if visited[key] {
+			return nil
+		}
+		visited[key] = true
+	}
+
 	binds := ExtractBindings(pkg, st.Struct)
-	for _, f := range st.Fields().List {
-		// Embedded struct (no field name)
-		if len(f.Names) == 0 {
-			if ident, ok := f.Type.(*ast.Ident); ok {
-				if embedded := parseStructAST(pkg.PkgDir, ident.Name); embedded != nil {
-					binds = append(binds, ExtractBindingsRecursive(pkg, embedded)...)
+	for _, f := range st.Fields() {
+		if len(f.Names) != 0 {
+			continue
+		}
+		embedded := resolveEmbeddedStruct(pkg, st, f.Type)
+		if embedded == nil {
+			continue
+		}
+		binds = append(binds, extractBindingsRecursive(pkg, embedded, visited)...)
+	}
+	return binds
+}
+
+func resolveEmbeddedStruct(pkg *scanner.PackageAPIs, owner *astStruct, expr ast.Expr) *astStruct {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return owner.load(t.Name)
+	case *ast.StarExpr:
+		return resolveEmbeddedStruct(pkg, owner, t.X)
+	case *ast.SelectorExpr:
+		if ident, ok := t.X.(*ast.Ident); ok {
+			if owner != nil && owner.ImportPath != "" {
+				// For structs loaded from an import, reuse the same loader.
+				return owner.load(t.Sel.Name)
+			}
+			if importPath, ok := pkg.Imports[ident.Name]; ok {
+				moduleDir := findModuleRoot(pkg.PkgDir)
+				if moduleDir == "" {
+					moduleDir = pkg.PkgDir
 				}
+				return loadStructFromImport(importPath, t.Sel.Name, moduleDir)
 			}
 		}
 	}
-	return binds
+	return nil
 }
 
 func ExtractBindings(pkg *scanner.PackageAPIs, st *ast.StructType) []FieldBind {
@@ -49,6 +95,7 @@ func ExtractBindings(pkg *scanner.PackageAPIs, st *ast.StructType) []FieldBind {
 	if st == nil || st.Fields == nil {
 		return binds
 	}
+
 	for _, f := range st.Fields.List {
 		if len(f.Names) == 0 || f.Tag == nil {
 			continue
@@ -68,22 +115,22 @@ func ExtractBindings(pkg *scanner.PackageAPIs, st *ast.StructType) []FieldBind {
 			})
 		}
 
-		if v, ok := stag.Lookup("gogeHeader"); ok {
+		if v, ok := stag.Lookup(_TAG_HEADER); ok {
 			key, def := parseBindingKey(v)
 			_, vk := fiberQueryMethodAndKind(f.Type)
 			addBind("header", key, def, "", vk)
 		}
-		if v, ok := stag.Lookup("gogeQuery"); ok {
+		if v, ok := stag.Lookup(_TAG_QUERY); ok {
 			key, def := parseBindingKey(v)
 			method, vk := fiberQueryMethodAndKind(f.Type)
 			addBind("query", key, def, method, vk)
 		}
-		if v, ok := stag.Lookup("gogeUrl"); ok {
+		if v, ok := stag.Lookup(_TAG_URL); ok {
 			key, _ := parseBindingKey(v)
 			_, vk := fiberQueryMethodAndKind(f.Type)
 			addBind("url", key, "", "", vk)
 		}
-		if v, ok := stag.Lookup("gogeCookie"); ok {
+		if v, ok := stag.Lookup(_TAG_COOKIE); ok {
 			key, def := parseBindingKey(v)
 			_, vk := fiberQueryMethodAndKind(f.Type)
 			addBind("cookie", key, def, "", vk)
@@ -130,7 +177,7 @@ func defaultLiteral(v string, k valKind) string {
 	case kindInt:
 		return v
 	case kindFloat:
-		return v 
+		return v
 	case kindBool:
 		// normalize lower
 		vl := strings.ToLower(v)
@@ -139,7 +186,7 @@ func defaultLiteral(v string, k valKind) string {
 		}
 		return vl
 	default:
-		return fmt.Sprintf("%q", v) 
+		return fmt.Sprintf("%q", v)
 	}
 }
 
